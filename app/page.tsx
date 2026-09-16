@@ -1526,7 +1526,7 @@ function Dashboard() {
         <footer><span>WebVault</span><span>{siteItems.length} {t("запазени сайта")} · {categories.length} {t("категории")}</span></footer>
       </div>
       {toastMessage && <div className="toast" role="status">{toastMessage}</div>}
-      <UpgradeModal open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog} reason={upgradeReason} />
+      <UpgradeModal open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog} reason={upgradeReason} language={language} />
       <Dialog open={showSiteDialog} onOpenChange={(open) => open ? setShowSiteDialog(true) : closeSiteDialog()}>
         <DialogContent className="dialog-panel">
           <DialogHeader className="dialog-heading">
