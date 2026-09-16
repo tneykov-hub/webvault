@@ -6,7 +6,7 @@ import type { Session } from "@supabase/supabase-js";
 import { ArrowRight, Check, LoaderCircle, LockKeyhole, LogIn, Mail, Search, ShieldCheck, Sparkles, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { supabase, supabaseConfigurationError } from "@/lib/supabase";
-import { trackWebVaultEvent, trackWebVaultVisit } from "@/lib/telemetry";
+import { consumeNativeAuthUrl, NATIVE_AUTH_URL_EVENT, webVaultAuthRedirectUrl } from "@/lib/native-app";
 
 type AuthContextValue = {
   session: Session;
@@ -14,14 +14,6 @@ type AuthContextValue = {
 };
 
 type AuthLanguage = "en" | "bg";
-
-// Confirmation and recovery emails must always return to a public HTTPS
-// address. A local development origin would produce links that Microsoft or a
-// user cannot open after the email leaves the local machine. Override this
-// value for another deployed environment with NEXT_PUBLIC_AUTH_REDIRECT_URL.
-const authRedirectUrl =
-  (typeof process !== "undefined" ? process.env.NEXT_PUBLIC_AUTH_REDIRECT_URL : "")?.trim() ||
-  "https://webvault.site";
 
 const authEnglishCopy: Record<string, string> = {
   "Всичко важно на едно място": "Everything important in one place",
@@ -99,16 +91,10 @@ function useAuthLanguage() {
 }
 
 function AuthLanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<AuthLanguage>("en");
-
-  useEffect(() => {
-    const storedLanguage = window.localStorage.getItem("webvault-language");
-    const queryLanguage = new URLSearchParams(window.location.search).get("lang");
-    // Hydrate the language preference after the initial render.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLanguageState(queryLanguage === "bg" || storedLanguage === "bg" ? "bg" : "en");
-    if (queryLanguage === "bg" || queryLanguage === "en") window.localStorage.setItem("webvault-language", queryLanguage);
-  }, []);
+  const [language, setLanguageState] = useState<AuthLanguage>(() => {
+    if (typeof window === "undefined") return "en";
+    return window.localStorage.getItem("webvault-language") === "bg" ? "bg" : "en";
+  });
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -141,19 +127,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
 function AuthGateContent({ children }: { children: ReactNode }) {
   const { setLanguage, t } = useAuthLanguage();
   const [session, setSession] = useState<Session | null>(null);
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(() => !supabase);
   const [setupError, setSetupError] = useState(false);
   const [deviceLimitError, setDeviceLimitError] = useState("");
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
-  const [authMode, setAuthMode] = useState<"sign-in" | "sign-up">("sign-in");
-  const [authUrlError, setAuthUrlError] = useState("");
-
-  function beginAuth(mode: "sign-in" | "sign-up") {
-    setAuthMode(mode);
-    setShowAuth(true);
-    void trackWebVaultEvent("auth_started", { mode });
-  }
+  const [authUrlError, setAuthUrlError] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const urlError = getAuthUrlError(consumeNativeAuthUrl() || window.location.href);
+    return urlError ? t(urlError) : "";
+  });
 
   async function prepareAccount() {
     if (!supabase) return false;
@@ -184,25 +167,16 @@ function AuthGateContent({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!supabase) {
-      // Mark the client-only auth check complete after the first render.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setReady(true);
       return;
     }
 
     let active = true;
-    const urlError = getAuthUrlError();
-    if (urlError) {
-      setAuthUrlError(t(urlError));
-      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
-    }
-    const authQuery = new URLSearchParams(window.location.search).get("auth");
-    if (authQuery === "signup" || authQuery === "signin") {
-      const mode = authQuery === "signup" ? "sign-up" : "sign-in";
-      setAuthMode(mode);
-      setShowAuth(true);
-      void trackWebVaultEvent("auth_started", { mode, source: "url" });
-    }
+    const receiveNativeAuthUrl = (event: Event) => {
+      const detail = (event as CustomEvent<{ url?: unknown }>).detail;
+      const rawUrl = typeof detail?.url === "string" ? detail.url : "";
+      const nativeUrlError = getAuthUrlError(rawUrl);
+      if (nativeUrlError) setAuthUrlError(t(nativeUrlError));
+    };
     const initialise = async () => {
       const { data } = await supabase.auth.getSession();
       if (!active) return;
@@ -212,6 +186,7 @@ function AuthGateContent({ children }: { children: ReactNode }) {
     };
 
     void initialise();
+    window.addEventListener(NATIVE_AUTH_URL_EVENT, receiveNativeAuthUrl);
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       if (event === "PASSWORD_RECOVERY") setRecoveryMode(true);
@@ -221,11 +196,17 @@ function AuthGateContent({ children }: { children: ReactNode }) {
 
     return () => {
       active = false;
+      window.removeEventListener(NATIVE_AUTH_URL_EVENT, receiveNativeAuthUrl);
       listener.subscription.unsubscribe();
     };
   // Authentication initializes once; the selected language is synchronized on sign-out.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!authUrlError) return;
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+  }, [authUrlError]);
 
   async function signOut() {
     if (!supabase) return;
@@ -239,9 +220,9 @@ function AuthGateContent({ children }: { children: ReactNode }) {
   const value = useMemo(() => session ? ({ session, signOut }) : null, [session]);
 
   if (supabaseConfigurationError) return <ConfigurationMessage />;
-  if (!ready) return <PublicLanding onStart={() => beginAuth("sign-up")} onLogin={() => beginAuth("sign-in")} trackVisit={false} />;
-  if (!session && !showAuth) return <PublicLanding onStart={() => beginAuth("sign-up")} onLogin={() => beginAuth("sign-in")} />;
-  if (!session) return <AuthForm initialError={authUrlError} initialMode={authMode} />;
+  if (!ready) return <AuthFrame><div className="auth-loading"><LoaderCircle size={22} className="spin" /> {t("Проверяваме сигурния ти вход…")}</div></AuthFrame>;
+  if (!session && !showAuth) return <PublicLanding onStart={() => setShowAuth(true)} />;
+  if (!session) return <AuthForm initialError={authUrlError} />;
   if (recoveryMode) return <PasswordRecovery onDone={() => setRecoveryMode(false)} />;
   if (deviceLimitError) return <DeviceLimitMessage message={deviceLimitError} signOut={signOut} />;
   if (setupError) return <SetupMessage retry={prepareAccount} signOut={signOut} />;
@@ -249,11 +230,8 @@ function AuthGateContent({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-function PublicLanding({ onStart, onLogin, trackVisit = true }: { onStart: () => void; onLogin: () => void; trackVisit?: boolean }) {
+function PublicLanding({ onStart }: { onStart: () => void }) {
   const { language, setLanguage } = useAuthLanguage();
-  useEffect(() => {
-    if (trackVisit) void trackWebVaultVisit("landing");
-  }, [trackVisit]);
   const copy = language === "en" ? {
     tagline: "Your sites. Organized.", eyebrow: "Personal web start", titleA: "Everything important online.", titleB: "In one place.", intro: "WebVault turns scattered bookmarks into a fast, beautiful and private dashboard.", start: "Start for free", login: "Log in", private: "Your data stays private", search: "Search your sites…", dashboard: "Your dashboard", sites: "sites", football: "Football", work: "Work", news: "News", synced: "Private and secure", findTitle: "Find it instantly", findText: "Search by name, address or category as you type.", secureTitle: "Private by design", secureText: "Your own account keeps your bookmarks yours.", anywhereTitle: "Grow when you need it", anywhereText: "Free starts on one device; PRO keeps your dashboard in sync everywhere.", planLabel: "GET STARTED", planTitle: "Start for free", planText: "Up to 30 sites and 3 categories. Upgrade whenever you need more.", sync: "Up to 30 saved sites", organize: "Up to 3 categories, favourites and search", backup: "Bookmark import and export included", create: "Create your account", footer: "Private access to your sites"
   } : {
@@ -261,7 +239,7 @@ function PublicLanding({ onStart, onLogin, trackVisit = true }: { onStart: () =>
   };
   return <main className="landing-page">
     <div className="landing-glow landing-glow-a" /><div className="landing-glow landing-glow-b" />
-    <nav className="landing-nav"><div className="landing-brand"><span className="brand-mark"><i /><i /><i /><i /></span><span><strong>WebVault</strong><small>{copy.tagline}</small></span></div><div className="landing-nav-actions"><div className="landing-language" aria-label="Language"><button className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>EN</button><button className={language === "bg" ? "active" : ""} onClick={() => setLanguage("bg")}>BG</button></div><button className="landing-login" onClick={onLogin}>{copy.login} <ArrowRight size={16} /></button></div></nav>
+    <nav className="landing-nav"><div className="landing-brand"><span className="brand-mark"><i /><i /><i /><i /></span><span><strong>WebVault</strong><small>{copy.tagline}</small></span></div><div className="landing-nav-actions"><div className="landing-language" aria-label="Language"><button className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>EN</button><button className={language === "bg" ? "active" : ""} onClick={() => setLanguage("bg")}>BG</button></div><button className="landing-login" onClick={onStart}>{copy.login} <ArrowRight size={16} /></button></div></nav>
     <section className="landing-hero"><div className="landing-copy"><div className="landing-eyebrow"><Sparkles size={15} /> {copy.eyebrow}</div><h1>{copy.titleA}<br /><em>{copy.titleB}</em></h1><p>{copy.intro}</p><div className="landing-actions"><button className="landing-cta" onClick={onStart}>{copy.start} <ArrowRight size={18} /></button><span className="landing-note"><ShieldCheck size={15} /> {copy.private}</span></div></div><div className="landing-preview" aria-label="WebVault preview"><div className="preview-top"><span className="preview-dots"><i /><i /><i /></span><span className="preview-title">WebVault</span><span className="preview-avatar">W</span></div><div className="preview-search"><Search size={15} /> {copy.search}</div><div className="preview-heading"><span>{copy.dashboard}</span><span>8 {copy.sites}</span></div><div className="preview-grid"><div className="preview-card aqua"><span>⚽</span><strong>{copy.football}</strong><small>12 {copy.sites}</small></div><div className="preview-card violet"><span>✦</span><strong>AI</strong><small>8 {copy.sites}</small></div><div className="preview-card amber"><span>💼</span><strong>{copy.work}</strong><small>15 {copy.sites}</small></div><div className="preview-card rose"><span>📰</span><strong>{copy.news}</strong><small>6 {copy.sites}</small></div></div><div className="preview-footer"><Check size={14} /> {copy.synced}</div></div></section>
     <section className="landing-benefits"><article><span className="benefit-icon"><Search size={19} /></span><h2>{copy.findTitle}</h2><p>{copy.findText}</p></article><article><span className="benefit-icon"><ShieldCheck size={19} /></span><h2>{copy.secureTitle}</h2><p>{copy.secureText}</p></article><article><span className="benefit-icon"><Sparkles size={19} /></span><h2>{copy.anywhereTitle}</h2><p>{copy.anywhereText}</p></article></section>
     <section className="landing-plan"><div><span className="landing-plan-label">{copy.planLabel}</span><h2>{copy.planTitle}</h2><p>{copy.planText}</p></div><ul><li><Check size={16} /> {copy.sync}</li><li><Check size={16} /> {copy.organize}</li><li><Check size={16} /> {copy.backup}</li></ul><button className="landing-plan-cta" onClick={onStart}>{copy.create} <ArrowRight size={17} /></button></section>
@@ -269,9 +247,9 @@ function PublicLanding({ onStart, onLogin, trackVisit = true }: { onStart: () =>
   </main>;
 }
 
-function AuthForm({ initialError = "", initialMode = "sign-in" }: { initialError?: string; initialMode?: "sign-in" | "sign-up" }) {
+function AuthForm({ initialError = "" }: { initialError?: string }) {
   const { t } = useAuthLanguage();
-  const [mode, setMode] = useState<"sign-in" | "sign-up">(initialMode);
+  const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -286,10 +264,11 @@ function AuthForm({ initialError = "", initialMode = "sign-in" }: { initialError
     setError(""); setNotice("");
     if (!/^\S+@\S+\.\S+$/.test(email)) return setError(t("Въведи имейла, с който се регистрира."));
     setBusy(true);
+    const authRedirectUrl = webVaultAuthRedirectUrl();
     const result = await supabase.auth.resend({
       type: "signup",
       email,
-      options: { emailRedirectTo: authRedirectUrl },
+      options: authRedirectUrl ? { emailRedirectTo: authRedirectUrl } : undefined,
     });
     setBusy(false);
     if (result.error) return setError(formatAuthError(result.error, t));
@@ -301,7 +280,8 @@ function AuthForm({ initialError = "", initialMode = "sign-in" }: { initialError
     setError(""); setNotice("");
     if (!/^\S+@\S+\.\S+$/.test(email)) return setError(t("Въведи имейл адреса на профила си."));
     setBusy(true);
-    const result = await supabase.auth.resetPasswordForEmail(email, { redirectTo: authRedirectUrl });
+    const authRedirectUrl = webVaultAuthRedirectUrl();
+    const result = await supabase.auth.resetPasswordForEmail(email, authRedirectUrl ? { redirectTo: authRedirectUrl } : undefined);
     setBusy(false);
     if (result.error) return setError(formatAuthError(result.error, t));
     setNotice(t("Изпратихме линк за промяна на паролата. Провери имейла си."));
@@ -319,6 +299,7 @@ function AuthForm({ initialError = "", initialMode = "sign-in" }: { initialError
     if (password.length < 8) return setError(t("Паролата трябва да е поне 8 символа."));
 
     setBusy(true);
+    const authRedirectUrl = webVaultAuthRedirectUrl();
     const result = mode === "sign-in"
       ? await supabase.auth.signInWithPassword({ email, password })
       : await supabase.auth.signUp({
@@ -326,7 +307,7 @@ function AuthForm({ initialError = "", initialMode = "sign-in" }: { initialError
         password,
         options: {
           data: { full_name: normalizedName },
-          emailRedirectTo: authRedirectUrl,
+          ...(authRedirectUrl ? { emailRedirectTo: authRedirectUrl } : {}),
         },
       });
     setBusy(false);
@@ -342,7 +323,6 @@ function AuthForm({ initialError = "", initialMode = "sign-in" }: { initialError
       setCanResend(true);
       setNotice(t("Провери имейла си и използвай най-новия линк за потвърждение. Линковете са еднократни и изтичат."));
     }
-    if (mode === "sign-up") void trackWebVaultEvent("signup_completed");
   }
 
   const isSignIn = mode === "sign-in";
@@ -416,8 +396,8 @@ function getOrCreateDeviceId() {
 }
 
 function DeviceLimitMessage({ message, signOut }: { message: string; signOut: () => Promise<void> }) {
-  const { language, t } = useAuthLanguage();
-  return <AuthFrame><div className="auth-badge"><ShieldCheck size={15} /> {t("План и устройства")}</div><h1>{t("Нужно е WebVault PRO")}</h1><p>{message}</p><div className="auth-actions"><Link className="auth-primary" href={`/pricing?lang=${language}`}><CrownIcon />{t("Стани PRO")}</Link><button className="auth-switch" onClick={() => void signOut()}>{t("Изход")}</button></div></AuthFrame>;
+  const { t } = useAuthLanguage();
+  return <AuthFrame><div className="auth-badge"><ShieldCheck size={15} /> {t("План и устройства")}</div><h1>{t("Нужно е WebVault PRO")}</h1><p>{message}</p><div className="auth-actions"><Link className="auth-primary" href="/pricing"><CrownIcon />{t("Стани PRO")}</Link><button className="auth-switch" onClick={() => void signOut()}>{t("Изход")}</button></div></AuthFrame>;
 }
 
 function CrownIcon() {
@@ -435,9 +415,16 @@ function ConfigurationMessage() {
   return <AuthFrame><div className="auth-badge"><LockKeyhole size={15} /> {t("Подготовка")}</div><h1>{t("Връзката се настройва")}</h1><p>{t("Supabase връзката още не е налична. Обнови страницата след малко.")}</p></AuthFrame>;
 }
 
-function getAuthUrlError() {
-  if (typeof window === "undefined") return "";
-  const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+function getAuthUrlError(rawUrl?: string) {
+  if (!rawUrl && typeof window === "undefined") return "";
+  let params: URLSearchParams;
+  try {
+    const url = new URL(rawUrl || window.location.href);
+    params = new URLSearchParams(url.hash.replace(/^#/, ""));
+    if (!params.get("error")) params = url.searchParams;
+  } catch {
+    return "";
+  }
   if (!params.get("error")) return "";
   if (params.get("error_code") === "otp_expired") {
     return "Линкът за потвърждение е изтекъл или вече е използван. Отвори регистрацията и изпрати нов линк.";
