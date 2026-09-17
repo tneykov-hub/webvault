@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { nativeCorsHeaders } from "@/lib/native-api";
 
 const requestTimeoutMs = 7000;
 
@@ -39,6 +40,14 @@ function isBlockedHost(hostname: string) {
   return false;
 }
 
+function json(request: Request, body: unknown, status = 200) {
+  return NextResponse.json(body, { status, headers: nativeCorsHeaders(request) });
+}
+
+export function OPTIONS(request: Request) {
+  return new NextResponse(null, { status: 204, headers: nativeCorsHeaders(request) });
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { url?: unknown };
@@ -46,7 +55,7 @@ export async function POST(request: Request) {
     const url = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
     const parsed = new URL(url);
     if (!/^https?:$/.test(parsed.protocol) || isBlockedHost(parsed.hostname)) {
-      return NextResponse.json({ error: "Unsupported URL" }, { status: 400 });
+      return json(request, { error: "Unsupported URL" }, 400);
     }
 
     const controller = new AbortController();
@@ -68,7 +77,7 @@ export async function POST(request: Request) {
     if (!response.ok) throw new Error(`Metadata request failed with ${response.status}`);
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.includes("html") && !contentType.includes("xhtml")) {
-      return NextResponse.json({
+      return json(request, {
         title: parsed.hostname.replace(/^www\./i, ""),
         description: "",
         faviconUrl: `https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(parsed.origin)}`,
@@ -80,12 +89,12 @@ export async function POST(request: Request) {
     const description = metaContent(html, "og:description") || metaContent(html, "description");
     const faviconUrl = `https://www.google.com/s2/favicons?sz=128&domain_url=${encodeURIComponent(parsed.origin)}`;
 
-    return NextResponse.json({
+    return json(request, {
       title: title.slice(0, 120),
       description: description.slice(0, 500),
       faviconUrl,
     });
   } catch {
-    return NextResponse.json({ error: "Metadata unavailable" }, { status: 502 });
+    return json(request, { error: "Metadata unavailable" }, 502);
   }
 }

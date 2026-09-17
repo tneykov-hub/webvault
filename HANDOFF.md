@@ -1,28 +1,21 @@
 # WebVault — HANDOFF
 
-## 15 September 2026 — Microsoft Store certification test account
+## 16 September 2026 — Capacitor iOS and Android application foundations
 
-- The Microsoft Store certification report completed on 15 September 2026 returned **Attention needed** under policies `10.12.10 Functionality` and `10.3.1 App Is Testable – Test Account`.
-- A dedicated review account was registered with `tneykov@mail.bg`; Supabase sent the confirmation email. The account has the normal three categories and three harmless public example sites so the tester can open the dashboard immediately.
-- The first confirmation link opened `localhost` because it came from an older local signup. A fresh confirmation email was resent with `https://webvault.site` as the redirect; use only the newest message.
-- `components/auth-gate.tsx` now uses the canonical public HTTPS redirect for signup, confirmation resend and password recovery, with `NEXT_PUBLIC_AUTH_REDIRECT_URL` available for an intentional override. Local TypeScript/build checks and all 11 tests pass; production deployment `dpl_3X2x1vpirBXyY1douByBLL6KvANK` reached **READY** and is aliased to `https://webvault.site`.
-- The verified source is published at `https://github.com/tneykov-hub/webvault` on the `main` branch. The Vercel project still needs its Git repository connection enabled in Project Settings before pushes can trigger deployments automatically.
-- The account password is intentionally not stored in source control. Do not resubmit until the email is confirmed and a real production sign-in test succeeds.
-- Certification notes must include the account email/password and steps to sign in, view the examples, add/edit/favourite/search/open a site. The demo account is intentionally kept within the Free-plan limits.
-- An earlier placeholder record for `store-review@webvault.site` was not login-valid and should be removed from Supabase Auth if it remains.
-
-## 12 September 2026 — growth readiness, localized checkout, telemetry and SEO
-
-- The public landing page now renders during the initial server/client shell while the Supabase session check is pending, so crawlers and first-time visitors receive the product presentation immediately instead of an auth loading screen.
-- The primary **Start for free** and **Create your account** actions open registration directly. The header **Log in** action still opens sign-in, and `?auth=signup` / `?auth=signin` links select the matching form.
-- `/pricing` now follows the stored EN/BG preference or an explicit `?lang=en|bg` value. It has its own language switch, localized plan copy and localized success/cancel/error states. Checkout and the Stripe Customer Portal receive the selected locale; success and cancel URLs preserve it.
-- Limit dialogs on the dashboard are localized too, and their PRO link carries the active `?lang=` value into pricing. An explicit language query is also applied when the dashboard mounts.
-- `app/api/stripe/create-checkout/route.ts` records the selected locale in Checkout metadata, passes `locale` and an `integration_identifier`, and preserves the language through the hosted payment return.
-- Added `lib/telemetry.ts` and `supabase/migrations/0005_marketing_events.sql`. First-party events record UTM/referrer attribution, landing/pricing/dashboard visits, return visits, registration, added/opened sites and Checkout milestones. Event rows use pseudonymous browser/session IDs and counts; bookmark URLs and titles are not sent to analytics. The client fails silently if the migration has not yet been applied.
-- Added Open Graph/Twitter metadata, a generated `public/webvault-social.png`, `app/robots.ts` and `app/sitemap.ts`. The public metadata points to `https://webvault.site`.
-- Updated the privacy policy to disclose the limited first-party product usage events.
-- Verification: `npx tsc --noEmit`, `npm run vercel-build`, `npm run lint` (0 errors, six non-blocking existing warnings) and `npm test` (11/11) complete successfully.
-- The `marketing_events` migration and its `user_id` index have been applied to the connected Supabase project. Redeploy the current source before expecting production event rows. Do not add service-role keys to client variables.
+- WebVault now has production-safe Capacitor 8 native projects in `ios/` and `android/`. Both package a locally built WebVault bundle from `mobile/`; neither uses Capacitor `server.url` or loads the production site as a remote WebView.
+- `capacitor.config.ts` uses app ID `site.webvault.app`, a local `mobile-web` build, mobile content mode, native keyboard resizing, non-overlay status-bar behaviour and branded splash settings. The iOS target supports iOS 15.0+.
+- Added the Capacitor App, Browser, Keyboard, Splash Screen and Status Bar plugins. Existing WebVault artwork now generates the iOS app/icon splash catalog and Android adaptive icon/light-dark splash resources.
+- Saved websites open through the native secure browser, preserving WebVault in the background. The PWA install dialog recognises the native app and does not attempt service-worker/PWA installation inside Capacitor.
+- Email confirmation and password recovery use `webvault://auth/callback`. It is registered in `ios/App/App/Info.plist`, Android's launcher intent filter and Supabase Authentication → URL Configuration (verified on 16 September 2026).
+- Android disables cleartext traffic and Android backups in `android/app/src/main/AndroidManifest.xml`. The app stores its source-of-truth data in the user's protected Supabase account; no credentials or service-role key were added to the bundle.
+- The native app uses the existing Supabase project directly. `app/api/metadata/route.ts` now exposes narrow CORS headers only for Capacitor localhost origins, so title/description detection works after the matching web source is deployed.
+- Mobile routes are local hash routes for the dashboard and pricing screen. Existing PRO status synchronizes, but external Stripe Checkout and Customer Portal are deliberately disabled in both native builds. Implement StoreKit and Google Play Billing before a store submission that sells digital PRO features.
+- New commands: `npm run mobile:build`, `npm run mobile:dev`, `npm run cap:sync:ios`, `npm run cap:open:ios`, `npm run cap:sync:android`, `npm run cap:open:android`. `IOS_SETUP.md` and `ANDROID_SETUP.md` contain the exact setup, signing and update steps.
+- No `.ipa`, APK or AAB was produced here: iOS requires macOS, Xcode and Apple signing credentials; Android requires the local Android SDK and the owner’s signing key. This workspace has Java 17 but no Android SDK, so an Android Gradle build was not attempted.
+- Final verification passed locally: `npx tsc --noEmit`, `npm run lint` (0 errors; 6 pre-existing warnings), `npm run mobile:build`, `npm run cap:sync:ios`, `npm run cap:sync:android`, `npm run vercel-build`, and `npm test` (**9/9**). No production deployment, Supabase data, Stripe configuration, store account or signing setting was changed in this transfer.
+- Android emulator smoke test passed on 16 September 2026 in Android Studio on Windows: after `npm ci` and `npm run cap:sync:android`, the app installed successfully on a Pixel 8 / Android 15 (API 35) emulator. It signed in with the owner’s real account, loaded real Supabase categories/sites and opened a saved external site in the native browser, returning correctly to WebVault.
+- Email confirmation/password recovery and new-site metadata lookup are not yet device-tested. The Supabase callback is configured; deploy this matching web source when approved before testing metadata lookup from the native app.
+- **Next agreed product step:** deploy the matching web source, then complete the Android email callback and metadata smoke tests. An optional test on a physical Android device can happen in parallel. Native store billing is the follow-on store-release milestone.
 
 ## 11 September 2026 — account personalization and dark-menu readability
 

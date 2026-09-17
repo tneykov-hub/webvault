@@ -40,7 +40,7 @@ import { AuthGate, useWebVaultAuth } from "@/components/auth-gate";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { FREE_CATEGORY_LIMIT, FREE_SITE_LIMIT, freeSubscriptionProfile, type SubscriptionProfile } from "@/lib/plans";
 import { supabase } from "@/lib/supabase";
-import { trackWebVaultEvent, trackWebVaultVisit } from "@/lib/telemetry";
+import { isNativeApp, openInNativeBrowser, webVaultApiUrl } from "@/lib/native-app";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -189,6 +189,7 @@ const englishCopy: Record<string, string> = {
   "WebVault остава отворен": "WebVault stays open",
   "В същия таб": "In the same tab",
   "Заменя текущата страница": "Replace the current page",
+  "В мобилното приложение сайтовете се отварят в защитен браузър, докато WebVault остава отворен.": "In the mobile app, sites open in a secure browser while WebVault stays open.",
   "Собствена икона": "Custom icon",
   "PNG, JPG, WebP или GIF · до 2 MB": "PNG, JPG, WebP or GIF · up to 2 MB",
   Смени: "Replace",
@@ -360,19 +361,6 @@ function LanguageProvider({ children }: { children: ReactNode }) {
       // Local storage can be unavailable in private browser modes.
     }
   };
-
-  useEffect(() => {
-    const queryLanguage = new URLSearchParams(window.location.search).get("lang");
-    if (queryLanguage !== "bg" && queryLanguage !== "en") return;
-    // Apply an explicit language in the URL when the dashboard mounts.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLanguageState(queryLanguage);
-    try {
-      window.localStorage.setItem("webvault-language", queryLanguage);
-    } catch {
-      // Local storage can be unavailable in private browser modes.
-    }
-  }, []);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -621,7 +609,7 @@ function Dashboard() {
   const [showInstallDialog, setShowInstallDialog] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(() => typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || ("standalone" in navigator && (navigator as Navigator & { standalone?: boolean }).standalone === true)));
+  const [isInstalled, setIsInstalled] = useState(() => isNativeApp() || (typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || ("standalone" in navigator && (navigator as Navigator & { standalone?: boolean }).standalone === true))));
   const [draggedCategory, setDraggedCategory] = useState<string | null>(null);
   const [draggedSiteId, setDraggedSiteId] = useState<string | null>(null);
   const [dropTargetSiteId, setDropTargetSiteId] = useState<string | null>(null);
@@ -630,6 +618,7 @@ function Dashboard() {
   const [newlyAddedSiteId, setNewlyAddedSiteId] = useState<string | null>(null);
   const toastTimerRef = useRef<number | undefined>(undefined);
   const displayName = profileDisplayName || fallbackDisplayName(session.user);
+  const nativeApp = isNativeApp();
 
   async function saveDisplayName(nextName: string) {
     if (!supabase) return t("Връзката с профила не е налична.");
@@ -672,6 +661,7 @@ function Dashboard() {
   }, [dark]);
 
   useEffect(() => {
+    if (isNativeApp()) return;
     if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
     const captureInstallPrompt = (event: Event) => {
       event.preventDefault();
@@ -742,13 +732,6 @@ function Dashboard() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadData();
   }, [session.user.id]);
-
-  useEffect(() => {
-    if (!dataReady || dataError) return;
-    void trackWebVaultVisit("dashboard", { siteCount: siteItems.length, categoryCount: categories.length });
-    // Track the first completed dashboard load; later changes emit site action events.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataReady]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -877,7 +860,7 @@ function Dashboard() {
     metadataFetchedForRef.current = details.url;
     setMetadataBusy(true);
     try {
-      const response = await fetch("/api/metadata", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: details.url }) });
+      const response = await fetch(webVaultApiUrl("/api/metadata"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: details.url }) });
       const metadata = (await response.json()) as { title?: unknown; description?: unknown; faviconUrl?: unknown };
       const title = typeof metadata.title === "string" && metadata.title.trim() ? metadata.title.trim().slice(0, 120) : details.domain;
       const description = cleanDescription(metadata.description);
@@ -1293,7 +1276,6 @@ function Dashboard() {
     setSiteItems((items) => wasNew ? [...items, saved] : items.map((site) => site.id === saved.id ? saved : site));
     closeSiteDialog();
     announceToast(t(wasNew ? "Сайтът е добавен" : "Сайтът е обновен"));
-    if (wasNew) void trackWebVaultEvent("site_added", { siteCount: siteItems.length + 1 });
     if (wasNew) {
       setNewlyAddedSiteId(saved.id);
       window.setTimeout(() => {
@@ -1310,7 +1292,10 @@ function Dashboard() {
     const nextVisitCount = site.visitCount + 1;
     setSiteItems((items) => items.map((item) => item.id === site.id ? { ...item, visitCount: nextVisitCount, lastOpenedAt: now } : item));
     void supabase?.from("sites").update({ visit_count: nextVisitCount, last_opened_at: now }).eq("id", site.id);
-    void trackWebVaultEvent("site_opened", { visitCount: nextVisitCount });
+    if (isNativeApp()) {
+      void openInNativeBrowser(site.url);
+      return;
+    }
     if (site.openInNewTab === false) window.location.assign(site.url);
     else window.open(site.url, "_blank", "noopener,noreferrer");
   }
@@ -1517,7 +1502,7 @@ function Dashboard() {
         <div className="header-actions">
           <div className="dashboard-language" aria-label={t("Език")}><button className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>EN</button><button className={language === "bg" ? "active" : ""} onClick={() => setLanguage("bg")}>BG</button></div>
           <DropdownMenu><DropdownMenuTrigger asChild><button className="icon-button" title={t("Настройки")} aria-label={t("Настройки")}><Settings2 size={19} /></button></DropdownMenuTrigger><DropdownMenuContent align="end" className="header-menu"><DropdownMenuItem onSelect={openBackupManager} title={t("Изтегли backup")}><Download size={16} />{t("Backup и импорт")}</DropdownMenuItem><DropdownMenuItem onSelect={openBookmarkImport} title={t("Импорт на отметки")}><Upload size={16} />{t("Импорт на отметки")}</DropdownMenuItem><DropdownMenuItem onSelect={openInstallManager} title={t("Мобилен изглед")}><Smartphone size={16} />{t("Инсталирай приложението")}</DropdownMenuItem><DropdownMenuItem onSelect={() => setShowProfile(true)} title={t("Отвори настройките")}><UserCircle size={16} />{t("Профил и настройки")}</DropdownMenuItem><DropdownMenuItem onSelect={() => setDark((value) => !value)} title={t("Смени цветния режим")}>{dark ? <Sun size={16} /> : <Moon size={16} />}{t("Смени цветния режим")}</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => void signOut()} title={t("Изход")} className="danger-item"><LogOut size={16} />{t("Изход")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
-          <Link className={subscription.isPro ? "pro-badge" : "go-pro"} href={`/pricing?lang=${language}`} title={subscription.isPro ? t("PRO е активен") : t("Стани PRO")}>{subscription.isPro ? <><Crown size={14} />PRO</> : <><Crown size={15} />{t("Стани PRO")}</>}</Link>
+          <Link className={subscription.isPro ? "pro-badge" : "go-pro"} href="/pricing" title={subscription.isPro ? t("PRO е активен") : t("Стани PRO")}>{subscription.isPro ? <><Crown size={14} />PRO</> : <><Crown size={15} />{t("Стани PRO")}</>}</Link>
           <button className="avatar" title={session.user.email ?? t("Профил")} aria-label={`${t("Профил")} ${displayName}`} onClick={() => setShowProfile(true)}>{avatarInitials(displayName)}</button>
         </div>
       </header>
@@ -1576,13 +1561,13 @@ function Dashboard() {
               <button type="button" className="category-button" onClick={() => void createInlineCategory()}><Plus size={15} />{t("Добави категория")}</button>
             </div>}
             <label className="favorite-check"><input type="checkbox" checked={siteDraft.favorite} onChange={(event) => setSiteDraft((draft) => ({ ...draft, favorite: event.target.checked }))} /><span><Star size={16} /> {t("Любими")}</span></label>
-            <fieldset className="link-target-field">
+            {nativeApp ? <p className="native-link-note">{t("В мобилното приложение сайтовете се отварят в защитен браузър, докато WebVault остава отворен.")}</p> : <fieldset className="link-target-field">
               <legend>{t("Отваряне на сайта")}</legend>
               <RadioGroup className="link-target-options" value={siteDraft.openInNewTab ? "new" : "same"} onValueChange={(value) => setSiteDraft((draft) => ({ ...draft, openInNewTab: value === "new" }))}>
                 <label className="target-option"><RadioGroupItem value="new" /><span><strong>{t("В нов таб")}</strong><small>{t("WebVault остава отворен")}</small></span></label>
                 <label className="target-option"><RadioGroupItem value="same" /><span><strong>{t("В същия таб")}</strong><small>{t("Заменя текущата страница")}</small></span></label>
               </RadioGroup>
-            </fieldset>
+            </fieldset>}
             <div className="icon-picker">
               <span className="icon-picker-preview">{siteIconPreview || detectedFavicon ? <img src={siteIconPreview ?? detectedFavicon ?? ""} alt={t("Преглед на собствената икона")} /> : <ImagePlus size={22} />}</span>
               <div>
@@ -1647,7 +1632,7 @@ function Dashboard() {
         </DialogContent>
       </Dialog>
       <Dialog open={showInstallDialog} onOpenChange={setShowInstallDialog}><DialogContent className="dialog-panel install-dialog"><DialogHeader className="dialog-heading"><span className="modal-icon"><Smartphone size={20} /></span><div><DialogTitle>{t("Инсталирай WebVault")}</DialogTitle><DialogDescription>{t("Отваряй приложението от началния екран като самостоятелно приложение.")}</DialogDescription></div></DialogHeader>{isInstalled ? <div className="install-status"><strong>{t("WebVault вече е инсталиран")}</strong><p>{t("Можеш да го отваряш директно от началния екран или менюто с приложения.")}</p></div> : installPrompt ? <div className="install-status"><strong>{t("Готово за инсталиране")}</strong><p>{t("Натисни бутона и потвърди инсталирането в браузъра.")}</p><button className="add-button" onClick={() => void installApp()}><Smartphone size={18} />{t("Инсталирай WebVault")}</button></div> : <div className="install-guides"><div><strong>{t("iPhone / iPad")}</strong><p>{t("Отвори менюто Share в Safari и избери „Add to Home Screen“.")}</p></div><div><strong>{t("Android / Windows")}</strong><p>{t("Отвори менюто на Chrome и избери „Install app“ или „Добавяне към началния екран“.")}</p></div></div>}<div className="modal-actions"><button className="cancel" onClick={() => setShowInstallDialog(false)}>{t("Затвори")}</button></div></DialogContent></Dialog>
-      <ProfileSettingsV2 open={showProfile} onOpenChange={setShowProfile} email={session.user.email ?? ""} displayName={displayName} onSaveDisplayName={saveDisplayName} language={language} setLanguage={setLanguage} dark={dark} setDark={setDark} onSignOut={signOut} t={t} />
+      <ProfileSettingsV2 key={`${showProfile ? "open" : "closed"}-${displayName}`} open={showProfile} onOpenChange={setShowProfile} email={session.user.email ?? ""} displayName={displayName} onSaveDisplayName={saveDisplayName} language={language} setLanguage={setLanguage} dark={dark} setDark={setDark} onSignOut={signOut} t={t} />
       <AlertDialog open={Boolean(deleteCategoryTarget)} onOpenChange={(open) => !open && setDeleteCategoryTarget(null)}><AlertDialogContent className="confirm-dialog"><AlertDialogHeader><AlertDialogTitle>{t("Да изтрия ли категорията?")} „{categoryDisplayName(deleteCategoryTarget?.name ?? "", language)}“?</AlertDialogTitle><AlertDialogDescription>{t("Категорията ще бъде премахната. Сайтовете в нея няма да се загубят — ще бъдат преместени в „Други“.")}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="cancel">{t("Отказ")}</AlertDialogCancel><AlertDialogAction className="delete-action" disabled={categoryBusy} onClick={() => void confirmDeleteCategory()}>{t("Изтрий категорията")}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog open={Boolean(deleteSiteTarget)} onOpenChange={(open) => !open && setDeleteSiteTarget(null)}><AlertDialogContent className="confirm-dialog"><AlertDialogHeader><AlertDialogTitle>{t("Да изтрия ли сайта?")} „{deleteSiteTarget?.name ?? ""}“?</AlertDialogTitle><AlertDialogDescription>{t("Това действие ще премахне сайта от твоя списък окончателно.")}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="cancel">{t("Отказ")}</AlertDialogCancel><AlertDialogAction className="delete-action" onClick={() => void confirmDeleteSite()}>{t("Изтрий сайта")}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </main>
@@ -1698,12 +1683,6 @@ function ProfileSettingsV2({ open, onOpenChange, email, displayName, onSaveDispl
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    // Keep the dialog draft synchronized when it opens.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (open) setDisplayNameDraft(displayName);
-  }, [displayName, open]);
 
   function resetFeedback() {
     setMessage("");

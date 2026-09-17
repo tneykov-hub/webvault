@@ -1,3 +1,7 @@
+# WebVault
+
+WebVault is a private bookmark dashboard with Supabase authentication and sync. The Capacitor projects and handoff instructions are in [IOS_SETUP.md](IOS_SETUP.md), [ANDROID_SETUP.md](ANDROID_SETUP.md) and [HANDOFF.md](HANDOFF.md).
+
 # vinext-starter
 
 A clean full-stack starter running on

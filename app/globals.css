@@ -1616,6 +1616,16 @@ footer span:first-child {
   padding: 0;
   margin: 14px 0 0;
 }
+.native-link-note {
+  margin: 14px 0 0;
+  padding: 11px 12px;
+  border: 1px solid var(--dialog-line);
+  border-radius: 12px;
+  background: var(--dialog-soft);
+  color: var(--dialog-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
 .link-target-field legend {
   margin-bottom: 7px;
   font-size: 12px;
@@ -1956,11 +1966,6 @@ footer span:first-child {
 }
 .pricing-header .brand { color: #f4f6fb; text-decoration: none; }
 .pricing-header .brand small { color: #aeb5c2; }
-.pricing-header-actions { display: inline-flex; align-items: center; gap: 18px; }
-.pricing-language { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid #394052; border-radius: 999px; background: #202839; }
-.pricing-language button { border: 0; border-radius: 999px; padding: 5px 8px; color: #aeb5c2; background: transparent; font: inherit; font-size: 10px; font-weight: 900; cursor: pointer; }
-.pricing-language button:hover { color: #fff; }
-.pricing-language button.active { color: #161d2e; background: #f4f6fb; }
 .pricing-back {
   display: inline-flex;
   align-items: center;
@@ -2074,8 +2079,6 @@ footer span:first-child {
   .pricing-page { padding: 0 14px 40px; }
   .pricing-header { min-height: 68px; }
   .pricing-header .brand small { display: none; }
-  .pricing-header-actions { gap: 8px; }
-  .pricing-language button { padding: 4px 6px; }
   .pricing-hero { margin-top: 44px; }
   .pricing-comparison { grid-template-columns: 1.25fr 0.75fr 0.86fr; border-radius: 14px; }
   .pricing-column { grid-template-rows: 62px repeat(8, minmax(48px, auto)); }
