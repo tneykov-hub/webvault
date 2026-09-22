@@ -1,8 +1,22 @@
 # WebVault — HANDOFF
 
+## 22 September 2026 — Google Play privacy and account deletion readiness
+
+- The Google Play compliance source updates are implemented locally and use the public support address `tneykov@gmail.com` (support and account-deletion requests only).
+- Added the public `app/delete-account/page.tsx` route. After production deployment its required external Google Play account-deletion URL is `https://webvault.site/delete-account`.
+- Updated `app/privacy/page.tsx` for the WebVault Android app, including data handling, account deletion, Stripe cancellation and retention details.
+- Added the signed-in **Delete account** flow in Profile & settings. `app/api/account/delete/route.ts` authenticates the user, cancels an active Stripe subscription, removes that user's `site-icons` objects and deletes the Supabase Auth user; existing database foreign keys cascade the user's profile, categories, sites and registered devices.
+- Native CORS now permits the `Authorization` request header. Android `versionCode` is now `2` and `versionName` is `1.0.1`, so the next signed AAB can be uploaded after the already-uploaded version 1.
+- Verification passed on 22 September: `npm run mobile:build`, `npx cap sync android`, and `npm test` (9/9). The Android assets were synced to `android/app/src/main/assets/public`.
+- Production deployment of these changes is still pending. The connected Vercel deploy action returned the platform error `Tool deploy_to_vercel not found`; it was not retried as an infrastructure mutation. Do not enter the external deletion URL or release a new AAB until `https://webvault.site/delete-account` is live and tested.
+
+
+
 ## 16 September 2026 — Capacitor iOS and Android application foundations
 
-- WebVault now has production-safe Capacitor 8 native projects in `ios/` and `android/`. Both package a locally built WebVault bundle from `mobile/`; neither uses Capacitor `server.url` or loads the production site as a remote WebView.
+- WebVault now has production-safe Capacitor 8 native projects in `ios/` and `android/`. Both package a 
+
+locally built WebVault bundle from `mobile/`; neither uses Capacitor `server.url` or loads the production site as a remote WebView.
 - `capacitor.config.ts` uses app ID `site.webvault.app`, a local `mobile-web` build, mobile content mode, native keyboard resizing, non-overlay status-bar behaviour and branded splash settings. The iOS target supports iOS 15.0+.
 - Added the Capacitor App, Browser, Keyboard, Splash Screen and Status Bar plugins. Existing WebVault artwork now generates the iOS app/icon splash catalog and Android adaptive icon/light-dark splash resources.
 - Saved websites open through the native secure browser, preserving WebVault in the background. The PWA install dialog recognises the native app and does not attempt service-worker/PWA installation inside Capacitor.

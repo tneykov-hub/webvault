@@ -1321,9 +1321,28 @@ footer span:first-child {
   background: #e8e3ff;
   color: #5f4bc4;
 }
+.profile-choice.danger-item {
+  border-color: rgba(211, 76, 88, 0.35);
+  color: #c33d4c;
+}
 .site-dark .profile-choice.active {
   background: #38305f;
   color: #e1d9ff;
+}
+.site-dark .profile-choice.danger-item {
+  border-color: rgba(255, 137, 146, 0.42);
+  color: #ff8992;
+}
+.profile-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 11px;
+}
+.profile-account-actions .profile-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .profile-form label {
   display: block;

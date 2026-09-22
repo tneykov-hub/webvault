@@ -302,6 +302,14 @@ const extraEnglishCopy: Record<string, string> = {
   "Името е запазено.": "Name saved.",
   "Запази името": "Save name",
   "Връзката с профила не е налична.": "The profile connection is not available.",
+  "Изтриване на акаунта": "Account deletion",
+  "Изтриваш окончателно профила, отметките, категориите, устройства и качените икони. Ако имаш активен абонамент през Stripe, той ще бъде отменен.": "This permanently deletes your profile, bookmarks, categories, registered devices, and uploaded icons. An active Stripe subscription will be cancelled.",
+  "Политика и помощ": "Privacy policy & help",
+  "Изтрий акаунта": "Delete account",
+  "Да изтрия ли акаунта?": "Delete your account?",
+  "Това действие е окончателно. Ще изтрием твоите WebVault данни. Активен абонамент през Stripe ще бъде отменен веднага.": "This is permanent. Your WebVault data will be deleted. An active Stripe subscription will be cancelled immediately.",
+  "Сесията е изтекла. Влез отново, преди да изтриеш акаунта.": "Your session has expired. Sign in again before deleting your account.",
+  "Не успяхме да изтрием акаунта. Опитай отново или използвай страницата за изтриване.": "We could not delete the account. Try again or use the account-deletion page.",
 };
 
 const englishCategoryNames: Record<string, string> = {
@@ -1681,6 +1689,8 @@ function ProfileSettingsV2({ open, onOpenChange, email, displayName, onSaveDispl
   const [confirmation, setConfirmation] = useState("");
   const [nameBusy, setNameBusy] = useState(false);
   const [passwordBusy, setPasswordBusy] = useState(false);
+  const [deleteAccountBusy, setDeleteAccountBusy] = useState(false);
+  const [confirmAccountDeletion, setConfirmAccountDeletion] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -1717,14 +1727,50 @@ function ProfileSettingsV2({ open, onOpenChange, email, displayName, onSaveDispl
     setMessage(t("Паролата е обновена."));
   }
 
+  function openDeletionResource() {
+    void (async () => {
+      const opened = await openInNativeBrowser("https://webvault.site/delete-account").catch(() => false);
+      if (!opened) window.open("/delete-account", "_blank", "noopener,noreferrer");
+    })();
+  }
+
+  async function deleteAccount() {
+    resetFeedback();
+    if (!supabase) return setError(t("Връзката с профила не е налична."));
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session) return setError(t("Сесията е изтекла. Влез отново, преди да изтриеш акаунта."));
+
+    setDeleteAccountBusy(true);
+    try {
+      const response = await fetch(webVaultApiUrl("/api/account/delete"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+      });
+      if (!response.ok) throw new Error("Account deletion request failed.");
+
+      setConfirmAccountDeletion(false);
+      await onSignOut();
+      onOpenChange(false);
+    } catch {
+      setError(t("Не успяхме да изтрием акаунта. Опитай отново или използвай страницата за изтриване."));
+    } finally {
+      setDeleteAccountBusy(false);
+    }
+  }
+
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="dialog-panel profile-dialog"><DialogHeader className="dialog-heading"><span className="modal-icon"><UserCircle size={20} /></span><div><DialogTitle>{t("Профил и настройки")}</DialogTitle><DialogDescription>{t("Профилът ти")}</DialogDescription></div></DialogHeader><div className="profile-stack">
     <form className="profile-card profile-form" onSubmit={updateDisplayName}><div className="profile-card-heading"><UserCircle size={18} /><strong>{t("Име в профила")}</strong></div><small>{t("Това име се вижда в поздрава и аватара.")}</small><label><input value={displayNameDraft} onChange={(event) => { setDisplayNameDraft(event.target.value); resetFeedback(); }} placeholder={t("Въведи име за профила")} minLength={2} maxLength={80} autoComplete="name" required /></label><button className="add-button" disabled={nameBusy}>{nameBusy ? <LoaderCircle size={17} className="spin" /> : <UserCircle size={17} />}{t("Запази името")}</button></form>
     <section className="profile-card"><div className="profile-card-heading"><UserCircle size={18} /><strong>{t("Имейл")}</strong></div><p className="profile-email">{email}</p><small>{t("Този имейл е свързан с акаунта ти.")}</small></section>
     <section className="profile-card"><div className="profile-card-heading"><Settings2 size={18} /><strong>{t("Език")}</strong></div><div className="profile-choice-row"><button className={language === "en" ? "profile-choice active" : "profile-choice"} onClick={() => setLanguage("en")}>English</button><button className={language === "bg" ? "profile-choice active" : "profile-choice"} onClick={() => setLanguage("bg")}>Български</button></div></section>
     <section className="profile-card"><div className="profile-card-heading"><Sun size={18} /><strong>{t("Тема")}</strong></div><div className="profile-choice-row"><button className={!dark ? "profile-choice active" : "profile-choice"} onClick={() => setDark(false)}>{t("Светла")}</button><button className={dark ? "profile-choice active" : "profile-choice"} onClick={() => setDark(true)}>{t("Тъмна")}</button></div></section>
     <form className="profile-card profile-form" onSubmit={updatePassword}><div className="profile-card-heading"><KeyRound size={18} /><strong>{t("Смени паролата")}</strong></div><label>{t("Нова парола")}<input type="password" value={password} onChange={(event) => { setPassword(event.target.value); resetFeedback(); }} placeholder={t("Въведи нова парола")} minLength={8} autoComplete="new-password" /></label><label>{t("Потвърди новата парола")}<input type="password" value={confirmation} onChange={(event) => { setConfirmation(event.target.value); resetFeedback(); }} placeholder={t("Потвърди новата парола")} minLength={8} autoComplete="new-password" /></label><button className="add-button" disabled={passwordBusy}>{passwordBusy ? <LoaderCircle size={17} className="spin" /> : <KeyRound size={17} />}{t("Запази паролата")}</button></form>
+    <section className="profile-card"><div className="profile-card-heading"><Trash2 size={18} /><strong>{t("Изтриване на акаунта")}</strong></div><small>{t("Изтриваш окончателно профила, отметките, категориите, устройства и качените икони. Ако имаш активен абонамент през Stripe, той ще бъде отменен.")}</small><div className="profile-account-actions"><button type="button" className="profile-choice" onClick={openDeletionResource}>{t("Политика и помощ")}</button><button type="button" className="profile-choice danger-item" onClick={() => { resetFeedback(); setConfirmAccountDeletion(true); }}><Trash2 size={15} />{t("Изтрий акаунта")}</button></div></section>
     {(error || message) && <p className={error ? "form-error" : "import-success"}>{error || message}</p>}
-  </div><div className="profile-footer"><button className="text-button danger-item" onClick={() => void onSignOut()}><LogOut size={16} />{t("Излез от акаунта")}</button><button className="add-button" onClick={() => onOpenChange(false)}>{t("Готово")}</button></div></DialogContent></Dialog>;
+  </div><div className="profile-footer"><button className="text-button danger-item" onClick={() => void onSignOut()}><LogOut size={16} />{t("Излез от акаунта")}</button><button className="add-button" onClick={() => onOpenChange(false)}>{t("Готово")}</button></div><AlertDialog open={confirmAccountDeletion} onOpenChange={setConfirmAccountDeletion}><AlertDialogContent className="confirm-dialog"><AlertDialogHeader><AlertDialogTitle>{t("Да изтрия ли акаунта?")}</AlertDialogTitle><AlertDialogDescription>{t("Това действие е окончателно. Ще изтрием твоите WebVault данни. Активен абонамент през Stripe ще бъде отменен веднага.")}</AlertDialogDescription>{error && <p className="form-error">{error}</p>}</AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="cancel" disabled={deleteAccountBusy}>{t("Отказ")}</AlertDialogCancel><AlertDialogAction className="delete-action" disabled={deleteAccountBusy} onClick={(event) => { event.preventDefault(); void deleteAccount(); }}>{deleteAccountBusy ? <LoaderCircle size={17} className="spin" /> : <Trash2 size={17} />}{t("Изтрий акаунта")}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></DialogContent></Dialog>;
 }
 
 function SiteIcon({ site }: { site: Site }) {
