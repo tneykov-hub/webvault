@@ -8,6 +8,7 @@ export const metadata: Metadata = {
 
 const supportEmail = "tneykov@gmail.com";
 const deletionMailto = `mailto:${supportEmail}?subject=WebVault%20account%20deletion%20request`;
+const dataDeletionMailto = `mailto:${supportEmail}?subject=WebVault%20specific%20data%20deletion%20request`;
 
 export default function DeleteAccountPage() {
   return (
@@ -34,6 +35,13 @@ export default function DeleteAccountPage() {
           <h2>Cannot sign in?</h2>
           <p>Send an account-deletion request from the email address associated with your WebVault account. Include the email address of the account you want deleted. We may ask you to verify account ownership to protect the account from unauthorised deletion.</p>
           <p><a href={deletionMailto}>Email WebVault to request account deletion</a></p>
+        </section>
+
+        <section>
+          <h2>Delete specific data while keeping your account</h2>
+          <p>While signed in, you can remove individual saved bookmarks and custom categories from the WebVault dashboard. You can also email us to request deletion of specific saved bookmarks or categories without deleting your WebVault account. Include the email address of the account and identify the data you want removed. We may ask you to verify account ownership.</p>
+          <p>For a specific-data deletion request, we delete only the bookmarks or categories you identify. We keep your WebVault account, sign-in details, and any other data you do not ask us to remove. We do not apply an additional WebVault retention period to the requested WebVault data after deletion.</p>
+          <p><a href={dataDeletionMailto}>Email WebVault to request deletion of specific data</a></p>
         </section>
 
         <section>
