@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 32731)
-Total output lines: 1836
-
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -810,7 +807,747 @@ function Dashboard() {
     setShowCategories(true);
   }
 
-  funct…12731 tokens truncated…           <input value={siteDraft.url} onChange={(event) => { setSiteDraft((draft) => ({ ...draft, url: event.target.value })); metadataFetchedForRef.current = ""; }} onBlur={() => void fetchMetadataForUrl(siteDraft.url)} onPaste={(event) => { const pastedValue = event.clipboardData.getData("text"); window.setTimeout(() => void fetchMetadataForUrl(pastedValue), 0); }} placeholder="https://youtube.com" inputMode="url" required />
+  function openUpgradeDialog(reason = "Стани PRO за неограничени сайтове, категории и всички premium функции.") {
+    setUpgradeReason(reason);
+    setShowUpgradeDialog(true);
+  }
+
+  function openAddSite(categoryId?: string) {
+    if (!subscription.isPro && siteItems.length >= FREE_SITE_LIMIT) {
+      openUpgradeDialog("Достигна лимита на безплатния план. Стани PRO за неограничени сайтове.");
+      return;
+    }
+    if (siteIconPreview?.startsWith("blob:")) URL.revokeObjectURL(siteIconPreview);
+    setEditingSite(null);
+    setSiteDraft({ ...emptySiteDraft, categoryId: categoryId ?? categories[0]?.id ?? "" });
+    setSiteIconFile(null);
+    setSiteIconPreview(null);
+    setDetectedFavicon(null);
+    setRemoveCustomIcon(false);
+    setShowInlineCategoryCreate(false);
+    setInlineCategoryName("");
+    titleTouchedRef.current = false;
+    descriptionTouchedRef.current = false;
+    categoryTouchedRef.current = Boolean(categoryId);
+    metadataFetchedForRef.current = "";
+    setSiteError("");
+    setShowSiteDialog(true);
+  }
+
+  function openEditSite(site: Site) {
+    if (siteIconPreview?.startsWith("blob:")) URL.revokeObjectURL(siteIconPreview);
+    setEditingSite(site);
+    setSiteDraft({ name: site.name, url: site.url, categoryId: site.categoryId ?? categories[0]?.id ?? "", description: site.description, favorite: site.favorite, openInNewTab: site.openInNewTab !== false });
+    setSiteIconFile(null);
+    setSiteIconPreview(site.customIconUrl);
+    setDetectedFavicon(site.faviconUrl);
+    setRemoveCustomIcon(false);
+    setShowInlineCategoryCreate(false);
+    titleTouchedRef.current = true;
+    descriptionTouchedRef.current = Boolean(site.description);
+    categoryTouchedRef.current = true;
+    metadataFetchedForRef.current = "";
+    setSiteError("");
+    setShowSiteDialog(true);
+  }
+
+  function closeSiteDialog() {
+    if (siteIconPreview?.startsWith("blob:")) URL.revokeObjectURL(siteIconPreview);
+    setSiteIconFile(null);
+    setSiteIconPreview(null);
+    setDetectedFavicon(null);
+    setRemoveCustomIcon(false);
+    setShowInlineCategoryCreate(false);
+    setInlineCategoryName("");
+    setShowSiteDialog(false);
+  }
+
+  async function fetchMetadataForUrl(rawUrl: string) {
+    const details = cleanHttpUrl(rawUrl);
+    if (!details || (!details.domain.includes(".") && details.domain !== "localhost")) return;
+    if (metadataFetchedForRef.current === details.url) return;
+    metadataFetchedForRef.current = details.url;
+    setMetadataBusy(true);
+    try {
+      const response = await fetch(webVaultApiUrl("/api/metadata"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: details.url }) });
+      const metadata = (await response.json()) as { title?: unknown; description?: unknown; faviconUrl?: unknown };
+      const title = typeof metadata.title === "string" && metadata.title.trim() ? metadata.title.trim().slice(0, 120) : details.domain;
+      const description = cleanDescription(metadata.description);
+      const faviconUrl = typeof metadata.faviconUrl === "string" ? metadata.faviconUrl : faviconFor(details.url);
+      const suggestedId = suggestedCategoryId(categories, details.url);
+      setDetectedFavicon(faviconUrl);
+      setSiteDraft((draft) => ({ ...draft, name: titleTouchedRef.current ? draft.name : title, description: descriptionTouchedRef.current ? draft.description : description, categoryId: !categoryTouchedRef.current && suggestedId ? suggestedId : draft.categoryId }));
+    } catch {
+      const suggestedId = suggestedCategoryId(categories, details.url);
+      setDetectedFavicon(faviconFor(details.url));
+      setSiteDraft((draft) => ({ ...draft, name: titleTouchedRef.current ? draft.name : details.domain, categoryId: !categoryTouchedRef.current && suggestedId ? suggestedId : draft.categoryId }));
+    } finally {
+      setMetadataBusy(false);
+    }
+  }
+
+  function selectSiteIcon(file: File) {
+    if (!subscription.isPro) {
+      openUpgradeDialog("Собствените икони за сайтове са налични с WebVault PRO.");
+      return;
+    }
+    setSiteError("");
+    if (!iconMimeExtensions[file.type]) return setSiteError("Избери PNG, JPG, WebP или GIF изображение.");
+    if (file.size > 2 * 1024 * 1024) return setSiteError("Иконата трябва да е по-малка от 2 MB.");
+    if (siteIconPreview?.startsWith("blob:")) URL.revokeObjectURL(siteIconPreview);
+    setSiteIconFile(file);
+    setSiteIconPreview(URL.createObjectURL(file));
+    setRemoveCustomIcon(false);
+  }
+
+  function clearCustomIcon() {
+    if (siteIconPreview?.startsWith("blob:")) URL.revokeObjectURL(siteIconPreview);
+    setSiteIconFile(null);
+    setSiteIconPreview(null);
+    setRemoveCustomIcon(Boolean(editingSite?.customIconUrl));
+    if (siteIconInputRef.current) siteIconInputRef.current.value = "";
+  }
+
+  function handleCategorySelection(value: string) {
+    if (value === "__new__") {
+      categoryTouchedRef.current = true;
+      setSiteDraft((draft) => ({ ...draft, categoryId: "" }));
+      setShowInlineCategoryCreate(true);
+      return;
+    }
+    categoryTouchedRef.current = true;
+    setShowInlineCategoryCreate(false);
+    setSiteDraft((draft) => ({ ...draft, categoryId: value }));
+  }
+
+  async function createInlineCategory() {
+    if (!supabase) return;
+    if (!subscription.isPro && categories.length >= FREE_CATEGORY_LIMIT) {
+      openUpgradeDialog("Безплатният план включва до 3 категории. Стани PRO за неограничени категории.");
+      return;
+    }
+    const name = inlineCategoryName.trim();
+    if (!name) return setSiteError("Въведи име на категорията.");
+    if (categories.some((category) => normalizedName(category.name) === normalizedName(name))) return setSiteError("Вече има категория с това име.");
+    const result = await supabase.from("categories").insert({ user_id: session.user.id, name, icon: "🔖", tone: "blue", position: Math.max(0, ...categories.map((category) => category.position)) + 100 }).select("id,name,icon,tone,position,is_system").single();
+    if (result.error || !result.data) return setSiteError("Категорията не беше добавена. Опитай отново.");
+    const category = asCategory(result.data as Record<string, unknown>);
+    setCategories((items) => [...items, category]);
+    setSiteDraft((draft) => ({ ...draft, categoryId: category.id }));
+    setInlineCategoryName("");
+    setShowInlineCategoryCreate(false);
+    setSiteError("");
+  }
+
+  function storedIconPath(url: string | null) {
+    if (!url) return null;
+    const marker = "/storage/v1/object/public/site-icons/";
+    const index = url.indexOf(marker);
+    if (index < 0) return null;
+    const path = decodeURIComponent(url.slice(index + marker.length));
+    return path.startsWith(`${session.user.id}/`) ? path : null;
+  }
+
+  async function uploadSiteIcon(file: File, siteId: string) {
+    if (!supabase) throw new Error("Supabase unavailable");
+    if (!subscription.isPro) throw new Error("WebVault PRO is required for custom icons.");
+    const extension = iconMimeExtensions[file.type];
+    if (!extension || file.size > 2 * 1024 * 1024) throw new Error("Invalid icon");
+    const path = `${session.user.id}/${siteId}-${Date.now()}.${extension}`;
+    const upload = await supabase.storage.from("site-icons").upload(path, file, { cacheControl: "31536000", contentType: file.type, upsert: false });
+    if (upload.error) throw upload.error;
+    const publicUrl = supabase.storage.from("site-icons").getPublicUrl(path).data.publicUrl;
+    const update = await supabase.from("sites").update({ custom_icon_url: publicUrl }).eq("id", siteId);
+    if (update.error) {
+      void supabase.storage.from("site-icons").remove([path]);
+      throw update.error;
+    }
+    return publicUrl;
+  }
+
+  function openBackupManager() {
+    setImportPreview(null);
+    setImportError("");
+    setImportSuccess("");
+    setShowBackupDialog(true);
+  }
+
+  function importBookmarksFromSiteModal() {
+    setShowSiteDialog(false);
+    openBackupManager();
+    window.setTimeout(() => chromeInputRef.current?.click(), 120);
+  }
+
+  function openBookmarkImport() {
+    openBackupManager();
+    window.setTimeout(() => chromeInputRef.current?.click(), 120);
+  }
+
+  function openSampleCollection() {
+    setImportError("");
+    setImportSuccess("");
+    setImportPreview(sampleCollection());
+    setShowBackupDialog(true);
+  }
+
+  function openInstallManager() {
+    if (!subscription.isPro) {
+      openUpgradeDialog("PWA инсталацията е налична с WebVault PRO.");
+      return;
+    }
+    setShowInstallDialog(true);
+  }
+
+  async function installApp() {
+    if (!subscription.isPro) return openUpgradeDialog("PWA инсталацията е налична с WebVault PRO.");
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    if (choice.outcome === "accepted") setInstallPrompt(null);
+  }
+
+  function exportBackup() {
+    const categoryNameById = new Map(categories.map((category) => [category.id, category.name]));
+    const backup = { app: "webvault", version: 1, exportedAt: new Date().toISOString(), categories: [...categories].sort((first, second) => first.position - second.position).map(({ name, icon, tone, position }) => ({ name, icon, tone, position })), sites: [...siteItems].sort(byPosition).map((site) => ({ name: site.name, url: site.url, domain: site.domain, description: site.description, categoryName: categoryNameById.get(site.categoryId ?? "") ?? "Други", favorite: site.favorite, faviconUrl: site.faviconUrl, customIconUrl: site.customIconUrl, openInNewTab: site.openInNewTab, position: site.position })) };
+    downloadTextFile(JSON.stringify(backup, null, 2), `webvault-backup-${new Date().toISOString().slice(0, 10)}.json`, "application/json;charset=utf-8");
+  }
+
+  function exportBrowserBookmarks() {
+    const sortedCategories = [...categories].sort((first, second) => first.position - second.position);
+    const knownCategoryIds = new Set(sortedCategories.map((category) => category.id));
+    const renderLinks = (sites: Site[]) => sites
+      .sort(byPosition)
+      .map((site) => {
+        const description = site.description ? `\n        <DD>${escapeBookmarkHtml(site.description)}` : "";
+        return `        <DT><A HREF="${escapeBookmarkHtml(site.url)}">${escapeBookmarkHtml(site.name)}</A>${description}`;
+      })
+      .join("\n");
+    const sections = sortedCategories.flatMap((category) => {
+      const sites = siteItems.filter((site) => site.categoryId === category.id);
+      if (!sites.length) return [];
+      return [`    <DT><H3>${escapeBookmarkHtml(category.name)}</H3>\n    <DL><p>\n${renderLinks(sites)}\n    </DL><p>`];
+    });
+    const uncategorized = siteItems.filter((site) => !site.categoryId || !knownCategoryIds.has(site.categoryId));
+    if (uncategorized.length) sections.push(`    <DT><H3>Other</H3>\n    <DL><p>\n${renderLinks(uncategorized)}\n    </DL><p>`);
+    const html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">\n<TITLE>WebVault Bookmarks</TITLE>\n<H1>WebVault Bookmarks</H1>\n<DL><p>\n${sections.join("\n")}\n</DL><p>\n`;
+    downloadTextFile(html, `webvault-bookmarks-${new Date().toISOString().slice(0, 10)}.html`, "text/html;charset=utf-8");
+  }
+
+  async function prepareImport(file: File) {
+    setImportError("");
+    setImportSuccess("");
+    setImportPreview(null);
+    if (file.size > 5 * 1024 * 1024) return setImportError("Файлът е твърде голям. Избери JSON backup до 5 MB.");
+    try {
+      const raw = JSON.parse(await file.text()) as unknown;
+      if (!isRecord(raw) || !["webvault", "my-sites"].includes(String(raw.app)) || raw.version !== 1 || !Array.isArray(raw.categories) || !Array.isArray(raw.sites)) throw new Error("unsupported");
+      const categoriesByName = new Map<string, BackupCategory>();
+      for (const value of raw.categories) {
+        if (!isRecord(value) || typeof value.name !== "string") continue;
+        const name = value.name.trim().slice(0, 64);
+        if (!name || categoriesByName.has(normalizedName(name))) continue;
+        const icon = typeof value.icon === "string" && value.icon.trim() ? value.icon.trim().slice(0, 16) : "🔖";
+        const tone = typeof value.tone === "string" && allowedTones.has(value.tone) ? value.tone : "blue";
+        const position = typeof value.position === "number" && Number.isFinite(value.position) && value.position >= 0 ? value.position : (categoriesByName.size + 1) * 100;
+        categoriesByName.set(normalizedName(name), { name, icon, tone, position });
+      }
+      const sites: BackupSite[] = [];
+      let invalidCount = 0;
+      for (const value of raw.sites) {
+        if (!isRecord(value) || typeof value.name !== "string" || typeof value.url !== "string") {
+          invalidCount += 1;
+          continue;
+        }
+        const name = value.name.trim().slice(0, 120);
+        const urlDetails = cleanHttpUrl(value.url);
+        if (!name || !urlDetails) {
+          invalidCount += 1;
+          continue;
+        }
+        const rawCategoryName = typeof value.categoryName === "string" && value.categoryName.trim() ? value.categoryName.trim().slice(0, 64) : "Други";
+        const categoryKey = normalizedName(rawCategoryName);
+        if (!categoriesByName.has(categoryKey)) categoriesByName.set(categoryKey, { name: rawCategoryName, icon: "🔖", tone: "blue", position: (categoriesByName.size + 1) * 100 });
+        sites.push({ name, url: urlDetails.url, domain: urlDetails.domain, description: cleanDescription(value.description), categoryName: categoriesByName.get(categoryKey)?.name ?? "Други", favorite: value.favorite === true, faviconUrl: typeof value.faviconUrl === "string" && cleanHttpUrl(value.faviconUrl) ? value.faviconUrl : faviconFor(urlDetails.url), customIconUrl: typeof value.customIconUrl === "string" && cleanHttpUrl(value.customIconUrl) ? value.customIconUrl : null, openInNewTab: typeof value.openInNewTab === "boolean" ? value.openInNewTab : null, position: typeof value.position === "number" && Number.isFinite(value.position) && value.position >= 0 ? value.position : (sites.length + 1) * 100 });
+      }
+      if (!sites.length && !categoriesByName.size) throw new Error("empty");
+      setImportPreview({ fileName: file.name, source: "backup", categories: [...categoriesByName.values()].sort((first, second) => first.position - second.position), sites, invalidCount });
+    } catch {
+      setImportError("Това не е валиден WebVault backup файл. Избери JSON, свален от „Експорт“.");
+    } finally {
+      if (importInputRef.current) importInputRef.current.value = "";
+    }
+  }
+
+  async function prepareChromeImport(file: File) {
+    setImportError("");
+    setImportSuccess("");
+    setImportPreview(null);
+    if (file.size > 20 * 1024 * 1024) return setImportError("Chrome файлът е твърде голям. Максималният размер е 20 MB.");
+    try {
+      const documentNode = new DOMParser().parseFromString(await file.text(), "text/html");
+      const rootList = documentNode.querySelector("dl");
+      if (!rootList) throw new Error("missing bookmarks");
+      const categoriesByName = new Map<string, BackupCategory>();
+      const sites: BackupSite[] = [];
+      let invalidCount = 0;
+      const tones = ["aqua", "violet", "amber", "blue", "rose", "green"];
+      const categoryFor = (path: string[]) => {
+        const name = (path.length ? path.join(" / ") : "Chrome").slice(0, 64);
+        const key = normalizedName(name);
+        if (!categoriesByName.has(key)) categoriesByName.set(key, { name, icon: path.length > 1 ? "📁" : "🌐", tone: tones[categoriesByName.size % tones.length], position: (categoriesByName.size + 1) * 100 });
+        return categoriesByName.get(key)!;
+      };
+      const addAnchor = (anchor: HTMLAnchorElement, path: string[]) => {
+        const urlDetails = cleanHttpUrl(anchor.href);
+        const name = anchor.textContent?.trim().slice(0, 120) ?? "";
+        if (!urlDetails || !name) {
+          invalidCount += 1;
+          return;
+        }
+        const category = categoryFor(path);
+        sites.push({ name, url: urlDetails.url, domain: urlDetails.domain, description: "", categoryName: category.name, favorite: false, faviconUrl: faviconFor(urlDetails.url), customIconUrl: null, openInNewTab: null, position: (sites.length + 1) * 100 });
+      };
+      const walkList = (list: Element, path: string[]) => {
+        let pendingFolder: string | null = null;
+        for (const child of Array.from(list.children)) {
+          if (child.tagName !== "DT") {
+            if (child.tagName === "DL") {
+              walkList(child, pendingFolder ? [...path, pendingFolder] : path);
+              pendingFolder = null;
+            }
+            continue;
+          }
+          const directChildren = Array.from(child.children);
+          const heading = directChildren.find((element) => element.tagName === "H3");
+          const anchor = directChildren.find((element) => element.tagName === "A") as HTMLAnchorElement | undefined;
+          const nestedList = directChildren.find((element) => element.tagName === "DL");
+          if (heading) {
+            const folder = heading.textContent?.trim() || "Chrome";
+            if (nestedList) walkList(nestedList, [...path, folder]);
+            else pendingFolder = folder;
+          } else if (anchor) {
+            addAnchor(anchor, path);
+          }
+        }
+      };
+      walkList(rootList, []);
+      if (!sites.length) throw new Error("empty bookmarks");
+      setImportPreview({ fileName: file.name, source: "chrome", categories: [...categoriesByName.values()], sites, invalidCount });
+    } catch {
+      setImportError("Не открих валиден Chrome bookmarks файл. В Chrome избери Bookmarks → Bookmark manager → Export bookmarks.");
+    } finally {
+      if (chromeInputRef.current) chromeInputRef.current.value = "";
+    }
+  }
+
+  async function importBackup() {
+    if (!supabase || !importPreview || importBusy) return;
+    setImportBusy(true);
+    setImportError("");
+    const categoriesByKey = new Map(categories.map((category) => [normalizedName(category.name), category]));
+    let reusedFreeCategories = 0;
+    if (!subscription.isPro) {
+      const requestedKeys = new Set(importPreview.categories.map((category) => normalizedName(category.name)));
+      const categoriesWithSites = new Set(siteItems.map((site) => site.categoryId).filter((id): id is string => Boolean(id)));
+      const reusableCategories = categories
+        .filter((category) => !category.isSystem && !categoriesWithSites.has(category.id) && !requestedKeys.has(normalizedName(category.name)))
+        .slice(0, Math.max(0, FREE_CATEGORY_LIMIT - 1));
+      const missingFreeCategories = importPreview.categories.filter((category) => !categoriesByKey.has(normalizedName(category.name)));
+      for (const category of missingFreeCategories) {
+        const reusable = reusableCategories.shift();
+        if (!reusable) break;
+        const result = await supabase.from("categories").update({ name: category.name }).eq("id", reusable.id).select("id,name,icon,tone,position,is_system").single();
+        if (result.error || !result.data) {
+          setImportBusy(false);
+          void loadData(true);
+          return setImportError("Не успяхме да подготвим папките за импорта. Опитай отново.");
+        }
+        const updated = asCategory(result.data as Record<string, unknown>);
+        categoriesByKey.delete(normalizedName(reusable.name));
+        categoriesByKey.set(normalizedName(updated.name), updated);
+        reusedFreeCategories += 1;
+      }
+    }
+    const missingCategories = subscription.isPro
+      ? importPreview.categories.filter((category) => !categoriesByKey.has(normalizedName(category.name)))
+      : [];
+    const nextCategoryPosition = Math.max(0, ...categories.map((category) => category.position));
+    if (missingCategories.length) {
+      const result = await supabase.from("categories").insert(missingCategories.map((category, index) => ({ user_id: session.user.id, name: category.name, icon: category.icon, tone: category.tone, position: nextCategoryPosition + (index + 1) * 100 }))).select("id,name,icon,tone,position,is_system");
+      if (result.error || !result.data) {
+        setImportBusy(false);
+        return setImportError("Не успяхме да добавим новите категории. Нищо не беше импортнато.");
+      }
+      result.data.forEach((row) => {
+        const category = asCategory(row as Record<string, unknown>);
+        categoriesByKey.set(normalizedName(category.name), category);
+      });
+    }
+    const fallbackCategory = categories.find((category) => category.isSystem)
+      ?? categoriesByKey.get("други")
+      ?? categoriesByKey.get("other")
+      ?? categories[0]
+      ?? categoriesByKey.values().next().value;
+    if (!fallbackCategory) {
+      setImportBusy(false);
+      return setImportError("Не открихме категория, в която да добавим отметките.");
+    }
+    const remainingFreeSlots = subscription.isPro ? Number.POSITIVE_INFINITY : Math.max(0, FREE_SITE_LIMIT - siteItems.length);
+    if (!remainingFreeSlots) {
+      setImportBusy(false);
+      return setImportError("Безплатният план вече съдържа 30 сайта. Изтрий сайт или премини към PRO, за да импортираш още.");
+    }
+    const existingSiteKeys = new Set(siteItems.map((site) => `${site.url.toLocaleLowerCase()}|${normalizedName(categoryNames.get(site.categoryId ?? "") ?? "Други")}`));
+    const categoryCounts = new Map<string, number>();
+    siteItems.forEach((site) => categoryCounts.set(site.categoryId ?? "", (categoryCounts.get(site.categoryId ?? "") ?? 0) + 1));
+    const rows: Array<Record<string, unknown>> = [];
+    let skippedDuplicates = 0;
+    let skippedByLimit = 0;
+    const remappedCategoryKeys = new Set<string>();
+    for (const site of [...importPreview.sites].sort((first, second) => first.position - second.position || first.name.localeCompare(second.name, "bg"))) {
+      const requestedCategoryKey = normalizedName(site.categoryName);
+      const requestedCategory = categoriesByKey.get(requestedCategoryKey);
+      const category = requestedCategory ?? fallbackCategory;
+      if (!requestedCategory && !subscription.isPro) remappedCategoryKeys.add(requestedCategoryKey);
+      const key = `${site.url.toLocaleLowerCase()}|${normalizedName(category.name)}`;
+      if (existingSiteKeys.has(key)) {
+        skippedDuplicates += 1;
+        continue;
+      }
+      if (rows.length >= remainingFreeSlots) {
+        skippedByLimit += 1;
+        continue;
+      }
+      existingSiteKeys.add(key);
+      const count = (categoryCounts.get(category.id) ?? 0) + 1;
+      categoryCounts.set(category.id, count);
+      rows.push({ user_id: session.user.id, category_id: category.id, name: site.name, url: site.url, domain: site.domain, description: cleanDescription(site.description) || null, favicon_url: site.faviconUrl, custom_icon_url: site.customIconUrl, is_favorite: site.favorite, open_in_new_tab: site.openInNewTab, position: count * 100 });
+    }
+    if (rows.length) {
+      const result = await supabase.from("sites").insert(rows);
+      if (result.error) {
+        setImportBusy(false);
+        void loadData(true);
+        return setImportError("Някои данни не бяха импортнати. Обновихме списъка — опитай отново само ако липсват записи.");
+      }
+    }
+    setImportBusy(false);
+    setImportPreview(null);
+    const preparedCategories = missingCategories.length + reusedFreeCategories;
+    setImportSuccess(`Готово: добавени ${rows.length} сайта${preparedCategories ? ` и подготвени ${preparedCategories} категории` : ""}${remappedCategoryKeys.size ? ` · ${remappedCategoryKeys.size} папки са поставени в „${fallbackCategory.name}“` : ""}${skippedDuplicates ? ` · пропуснати ${skippedDuplicates} дубликата` : ""}${skippedByLimit ? ` · ${skippedByLimit} над FREE лимита` : ""}.`);
+    announceToast(t("Сайтовете са импортнати"));
+    void loadData(true);
+  }
+
+  async function submitSite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase) return;
+    const details = cleanHttpUrl(siteDraft.url);
+    if (!details) return setSiteError("Въведи валиден адрес, например https://youtube.com.");
+    if (!editingSite && !subscription.isPro && siteItems.length >= FREE_SITE_LIMIT) {
+      openUpgradeDialog("Достигна лимита на безплатния план. Стани PRO за неограничени сайтове.");
+      return setSiteError("Безплатният план включва до 30 сайта.");
+    }
+    const name = siteDraft.name.trim() || details.domain;
+    const description = cleanDescription(siteDraft.description);
+    if (!siteDraft.categoryId) return setSiteError("Избери категория.");
+    const payload = { name, url: details.url, domain: details.domain, description: description || null, category_id: siteDraft.categoryId, favicon_url: detectedFavicon ?? faviconFor(details.url), is_favorite: siteDraft.favorite, open_in_new_tab: siteDraft.openInNewTab };
+    const wasNew = !editingSite;
+    setSiteBusy(true);
+    setSiteError("");
+    const result = editingSite
+      ? await supabase.from("sites").update(payload).eq("id", editingSite.id).select("id,name,url,domain,description,favicon_url,custom_icon_url,is_favorite,position,open_in_new_tab,category_id,visit_count,last_opened_at").single()
+      : await supabase.from("sites").insert({ ...payload, user_id: session.user.id, position: (siteItems.filter((site) => site.categoryId === siteDraft.categoryId).length + 1) * 100 }).select("id,name,url,domain,description,favicon_url,custom_icon_url,is_favorite,position,open_in_new_tab,category_id,visit_count,last_opened_at").single();
+    if (result.error || !result.data) {
+      setSiteBusy(false);
+      return setSiteError("Записването не успя. Опитай отново.");
+    }
+    let saved = asSite(result.data as Record<string, unknown>);
+    const previousIconPath = storedIconPath(editingSite?.customIconUrl ?? null);
+    try {
+      if (siteIconFile) {
+        const customIconUrl = await uploadSiteIcon(siteIconFile, saved.id);
+        saved = { ...saved, customIconUrl };
+        if (previousIconPath) void supabase.storage.from("site-icons").remove([previousIconPath]);
+      } else if (removeCustomIcon && editingSite?.customIconUrl) {
+        const iconUpdate = await supabase.from("sites").update({ custom_icon_url: null }).eq("id", saved.id);
+        if (iconUpdate.error) throw iconUpdate.error;
+        saved = { ...saved, customIconUrl: null };
+        if (previousIconPath) void supabase.storage.from("site-icons").remove([previousIconPath]);
+      }
+    } catch {
+      setSiteBusy(false);
+      setEditingSite(saved);
+      setSiteItems((items) => items.some((site) => site.id === saved.id) ? items.map((site) => site.id === saved.id ? saved : site) : [...items, saved]);
+      return setSiteError("Сайтът е запазен, но собствената икона не беше качена. Провери SQL настройката за икони и опитай отново.");
+    }
+    setSiteBusy(false);
+    setSiteItems((items) => wasNew ? [...items, saved] : items.map((site) => site.id === saved.id ? saved : site));
+    closeSiteDialog();
+    announceToast(t(wasNew ? "Сайтът е добавен" : "Сайтът е обновен"));
+    if (wasNew) {
+      setNewlyAddedSiteId(saved.id);
+      window.setTimeout(() => {
+        const element = document.querySelector(`[data-site-id="${saved.id}"]`) as HTMLElement | null;
+        element?.scrollIntoView({ behavior: "smooth", block: "center" });
+        element?.focus();
+      }, 80);
+      window.setTimeout(() => setNewlyAddedSiteId(null), 1700);
+    }
+  }
+
+  function openSite(site: Site) {
+    const now = new Date().toISOString();
+    const nextVisitCount = site.visitCount + 1;
+    setSiteItems((items) => items.map((item) => item.id === site.id ? { ...item, visitCount: nextVisitCount, lastOpenedAt: now } : item));
+    void supabase?.from("sites").update({ visit_count: nextVisitCount, last_opened_at: now }).eq("id", site.id);
+    if (isNativeApp()) {
+      void openInNativeBrowser(site.url);
+      return;
+    }
+    if (site.openInNewTab === false) window.location.assign(site.url);
+    else window.open(site.url, "_blank", "noopener,noreferrer");
+  }
+
+  async function toggleFavorite(id: string) {
+    if (!supabase) return;
+    const site = siteItems.find((item) => item.id === id);
+    if (!site) return;
+    const nextFavorite = !site.favorite;
+    setSiteItems((items) => items.map((item) => item.id === id ? { ...item, favorite: nextFavorite } : item));
+    const { error } = await supabase.from("sites").update({ is_favorite: nextFavorite }).eq("id", id);
+    if (error) {
+      setSiteItems((items) => items.map((item) => item.id === id ? { ...item, favorite: site.favorite } : item));
+      setDataError("Промяната в любимите не беше запазена. Опитай отново.");
+    }
+  }
+
+  function focusSiteCard(id: string) {
+    const element = document.querySelector(`[data-site-id="${id}"]`) as HTMLElement | null;
+    element?.scrollIntoView({ behavior: "smooth", block: "center" });
+    element?.focus();
+  }
+
+  async function confirmDeleteSite() {
+    if (!supabase || !deleteSiteTarget) return;
+    const target = deleteSiteTarget;
+    const { error } = await supabase.from("sites").delete().eq("id", target.id);
+    if (error) return setDataError("Сайтът не беше изтрит. Опитай отново.");
+    setSiteItems((items) => items.filter((site) => site.id !== target.id));
+    setDeleteSiteTarget(null);
+  }
+
+  async function addCategory() {
+    if (!supabase) return;
+    if (!subscription.isPro && categories.length >= FREE_CATEGORY_LIMIT) {
+      openUpgradeDialog("Безплатният план включва до 3 категории. Стани PRO за неограничени категории.");
+      return;
+    }
+    const name = newCategoryName.trim();
+    if (!name) return setCategoryError("Въведи име на категорията.");
+    if (categories.some((category) => normalizedName(category.name) === normalizedName(name))) return setCategoryError("Вече има категория с това име.");
+    setCategoryBusy(true);
+    const result = await supabase.from("categories").insert({ user_id: session.user.id, name, icon: subscription.isPro ? newCategoryIcon.trim() || "🔖" : "🔖", tone: "blue", position: Math.max(0, ...categories.map((category) => category.position)) + 100 }).select("id,name,icon,tone,position,is_system").single();
+    setCategoryBusy(false);
+    if (result.error || !result.data) return setCategoryError("Категорията не беше добавена. Опитай отново.");
+    const category = asCategory(result.data as Record<string, unknown>);
+    setCategories((items) => [...items, category]);
+    setCategoryDrafts((drafts) => ({ ...drafts, [category.id]: category.name }));
+    setCategoryIconDrafts((drafts) => ({ ...drafts, [category.id]: category.icon }));
+    setNewCategoryName("");
+    setNewCategoryIcon("🔖");
+    setCategoryError("");
+  }
+
+  async function commitCategory(id: string) {
+    if (!supabase) return;
+    const current = categories.find((category) => category.id === id);
+    if (!current) return;
+    const draftName = (categoryDrafts[id] ?? categoryDisplayName(current.name, language)).trim();
+    const name = language === "en" && draftName === categoryDisplayName(current.name, "en") ? current.name : draftName;
+    const icon = (categoryIconDrafts[id] ?? current.icon).trim() || "🔖";
+    const duplicate = categories.some((category) => category.id !== id && normalizedName(category.name) === normalizedName(name));
+    if (!name || duplicate) {
+      setCategoryDrafts((drafts) => ({ ...drafts, [id]: current.name }));
+      setCategoryIconDrafts((drafts) => ({ ...drafts, [id]: current.icon }));
+      return setCategoryError(!name ? "Името на категорията не може да е празно." : "Вече има категория с това име.");
+    }
+    if (!subscription.isPro && icon !== current.icon) {
+      setCategoryIconDrafts((drafts) => ({ ...drafts, [id]: current.icon }));
+      openUpgradeDialog("Custom иконите за категории са налични с WebVault PRO.");
+      return;
+    }
+    if (name === current.name && icon === current.icon) return;
+    const { error } = await supabase.from("categories").update({ name, icon }).eq("id", id);
+    if (error) {
+      setCategoryDrafts((drafts) => ({ ...drafts, [id]: current.name }));
+      setCategoryIconDrafts((drafts) => ({ ...drafts, [id]: current.icon }));
+      return setCategoryError("Промяната не беше запазена. Опитай отново.");
+    }
+    setCategories((items) => items.map((category) => category.id === id ? { ...category, name, icon } : category));
+    setCategoryError("");
+  }
+
+  async function changeCategoryTone(category: Category) {
+    if (!supabase) return;
+    if (!subscription.isPro) {
+      openUpgradeDialog("Custom цветовете за категории са налични с WebVault PRO.");
+      return;
+    }
+    const index = toneOrder.indexOf(category.tone);
+    const tone = toneOrder[(index + 1 + toneOrder.length) % toneOrder.length];
+    const { error } = await supabase.from("categories").update({ tone }).eq("id", category.id);
+    if (error) return setCategoryError("Цветът не беше запазен. Опитай отново.");
+    setCategories((items) => items.map((item) => item.id === category.id ? { ...item, tone } : item));
+  }
+
+  async function saveCategoryOrder(next: Category[]) {
+    if (!supabase) return;
+    setCategories(next);
+    const results = await Promise.all(next.map((category, index) => supabase.from("categories").update({ position: (index + 1) * 100 }).eq("id", category.id)));
+    if (results.some((result) => result.error)) {
+      setCategoryError("Редът не беше запазен. Обнови страницата и опитай отново.");
+      void loadData();
+    }
+  }
+
+  function moveCategory(id: string, direction: -1 | 1) {
+    const index = categories.findIndex((category) => category.id === id);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= categories.length) return;
+    const next = [...categories];
+    [next[index], next[target]] = [next[target], next[index]];
+    void saveCategoryOrder(next);
+  }
+
+  function startCategoryDrag(event: ReactDragEvent<HTMLElement>, id: string) {
+    event.stopPropagation();
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/category", id);
+    setDraggedCategory(id);
+  }
+
+  function dropCategory(targetId: string) {
+    if (!draggedCategory || draggedCategory === targetId) return setDraggedCategory(null);
+    const from = categories.findIndex((category) => category.id === draggedCategory);
+    const to = categories.findIndex((category) => category.id === targetId);
+    if (from >= 0 && to >= 0) {
+      const next = [...categories];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      void saveCategoryOrder(next);
+    }
+    setDraggedCategory(null);
+  }
+
+  function startSiteDrag(event: ReactDragEvent<HTMLElement>, siteId: string) {
+    if (siteOrderBusy) return;
+    event.stopPropagation();
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", siteId);
+    setDraggedSiteId(siteId);
+    setDropTargetSiteId(null);
+  }
+
+  async function moveSite(siteId: string, targetCategoryId: string, targetSiteId?: string) {
+    if (!supabase || siteOrderBusy) return;
+    const draggedSite = siteItems.find((site) => site.id === siteId);
+    if (!draggedSite || (draggedSite.categoryId === targetCategoryId && targetSiteId === siteId)) return;
+    const sourceSites = siteItems.filter((site) => site.categoryId === draggedSite.categoryId && site.id !== siteId).sort(byPosition);
+    const targetBase = draggedSite.categoryId === targetCategoryId ? sourceSites : siteItems.filter((site) => site.categoryId === targetCategoryId && site.id !== siteId).sort(byPosition);
+    const targetIndex = targetSiteId ? targetBase.findIndex((site) => site.id === targetSiteId) : -1;
+    const targetSites = [...targetBase];
+    targetSites.splice(targetIndex < 0 ? targetSites.length : targetIndex, 0, { ...draggedSite, categoryId: targetCategoryId });
+    const changedSites = [
+      ...(draggedSite.categoryId === targetCategoryId ? [] : sourceSites.map((site, index) => ({ id: site.id, categoryId: site.categoryId, position: (index + 1) * 100 }))),
+      ...targetSites.map((site, index) => ({ id: site.id, categoryId: targetCategoryId, position: (index + 1) * 100 })),
+    ];
+    const changesById = new Map(changedSites.map((site) => [site.id, site]));
+    setSiteOrderBusy(true);
+    setSiteItems((sites) => sites.map((site) => {
+      const change = changesById.get(site.id);
+      return change ? { ...site, categoryId: change.categoryId, position: change.position } : site;
+    }));
+    setDraggedSiteId(null);
+    setDropTargetSiteId(null);
+    const results = await Promise.all(changedSites.map((site) => supabase.from("sites").update({ category_id: site.categoryId, position: site.position }).eq("id", site.id)));
+    setSiteOrderBusy(false);
+    if (results.some((result) => result.error)) {
+      setDataError("Новият ред не беше запазен. Обнови страницата и опитай отново.");
+      void loadData();
+    }
+  }
+
+  function toggleCategoryCollapse(id: string) {
+    setCollapsedCategories((items) => ({ ...items, [id]: !items[id] }));
+  }
+
+  function collapseAllCategories() {
+    setCollapsedCategories(Object.fromEntries(categories.map((category) => [category.id, true])));
+  }
+
+  async function confirmDeleteCategory() {
+    if (!supabase || !deleteCategoryTarget || deleteCategoryTarget.isSystem) return;
+    const otherCategory = categories.find((category) => category.isSystem || category.name === "Други");
+    if (!otherCategory) return setCategoryError("Не открихме категория „Други“. Обнови страницата и опитай отново.");
+    const target = deleteCategoryTarget;
+    setCategoryBusy(true);
+    const moveResult = await supabase.from("sites").update({ category_id: otherCategory.id }).eq("category_id", target.id);
+    const deleteResult = moveResult.error ? null : await supabase.from("categories").delete().eq("id", target.id);
+    setCategoryBusy(false);
+    if (moveResult.error || deleteResult?.error) return setDataError("Категорията не беше изтрита. Опитай отново.");
+    setSiteItems((items) => items.map((site) => site.categoryId === target.id ? { ...site, categoryId: otherCategory.id } : site));
+    setCategories((items) => items.filter((category) => category.id !== target.id));
+    setDeleteCategoryTarget(null);
+  }
+
+  const showInitialEmpty = dataReady && !dataError && !siteItems.length && !query && searchFilter === "all";
+
+  return (
+    <main className={dark ? "app dark" : "app"}>
+      <div className="ambient one" /><div className="ambient two" />
+      <header className="topbar">
+        <a className="brand" href="#top" aria-label="WebVault начало"><span className="brand-mark"><i /><i /><i /><i /></span><span><strong>WebVault</strong><small>{t("Всичко важно на едно място")}</small></span></a>
+        <div className="header-actions">
+          <div className="dashboard-language" aria-label={t("Език")}><button className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>EN</button><button className={language === "bg" ? "active" : ""} onClick={() => setLanguage("bg")}>BG</button></div>
+          <DropdownMenu><DropdownMenuTrigger asChild><button className="icon-button" title={t("Настройки")} aria-label={t("Настройки")}><Settings2 size={19} /></button></DropdownMenuTrigger><DropdownMenuContent align="end" className="header-menu"><DropdownMenuItem onSelect={openBackupManager} title={t("Изтегли backup")}><Download size={16} />{t("Backup и импорт")}</DropdownMenuItem><DropdownMenuItem onSelect={openBookmarkImport} title={t("Импорт на отметки")}><Upload size={16} />{t("Импорт на отметки")}</DropdownMenuItem><DropdownMenuItem onSelect={openInstallManager} title={t("Мобилен изглед")}><Smartphone size={16} />{t("Инсталирай приложението")}</DropdownMenuItem><DropdownMenuItem onSelect={() => setShowProfile(true)} title={t("Отвори настройките")}><UserCircle size={16} />{t("Профил и настройки")}</DropdownMenuItem><DropdownMenuItem onSelect={() => setDark((value) => !value)} title={t("Смени цветния режим")}>{dark ? <Sun size={16} /> : <Moon size={16} />}{t("Смени цветния режим")}</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => void signOut()} title={t("Изход")} className="danger-item"><LogOut size={16} />{t("Изход")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+          <Link className={subscription.isPro ? "pro-badge" : "go-pro"} href="/pricing" title={subscription.isPro ? t("PRO е активен") : t("Стани PRO")}>{subscription.isPro ? <><Crown size={14} />PRO</> : <><Crown size={15} />{t("Стани PRO")}</>}</Link>
+          <button className="avatar" title={session.user.email ?? t("Профил")} aria-label={`${t("Профил")} ${displayName}`} onClick={() => setShowProfile(true)}>{avatarInitials(displayName)}</button>
+        </div>
+      </header>
+      <div className="shell" id="top">
+        <section className="intro"><div><span className="eyebrow"><Sparkles size={14} /> {t("Лично пространство")}</span><h1>{language === "en" ? `Good morning, ${displayName}.` : `Добро утро, ${displayName}.`}</h1><p>{t("Намери любимите си сайтове за секунди.")}</p></div><div className="primary-actions"><button className="category-button" onClick={openCategoryManager}><FolderPlus size={19} /><b>{t("Категории")}</b></button><button className="add-button" onClick={() => openAddSite()}><Plus size={20} /><b>{t("Добави сайт")}</b></button></div></section>
+        <div className="search-area"><div className="search-wrap"><Search size={21} /><input ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("Търси по име, адрес или категория…")} aria-label={t("Търси сайтове")} aria-controls="search-results" />{query && <button onClick={() => setQuery("")} aria-label={t("Изчисти")} title={t("Изчисти")}><X size={18} /></button>}<kbd>⌘ K</kbd></div><div className="search-filters" aria-label="Search filters"><button className={searchFilter === "all" ? "active" : ""} onClick={() => setSearchFilter("all")}><Check size={13} />{t("Всички")}</button><button className={searchFilter === "favorites" ? "active" : ""} onClick={() => setSearchFilter("favorites")}><Star size={13} />{t("Любими")}</button><button className={searchFilter === "recent" ? "active" : ""} onClick={() => setSearchFilter("recent")}><Clock3 size={13} />{t("Скорошни")}</button><button className={searchFilter === "visited" ? "active" : ""} onClick={() => setSearchFilter("visited")}><BarChart3 size={13} />{t("Най-посещавани")}</button></div><p className="search-hint">{t("Натисни K за търсене")}</p>{query.trim() && dataReady && <div className="search-results" id="search-results" role="listbox">{searchResultGroups.length ? searchResultGroups.map(({ category, items }) => <div className="search-result-group" key={category.id}><div className="search-result-heading"><span>{category.icon} {categoryLabels.get(category.id) ?? category.name}</span><small>{items.length}</small></div>{items.slice(0, 5).map((site) => <button className="search-result" key={site.id} onClick={() => focusSiteCard(site.id)} role="option" aria-selected="false"><SiteIcon site={site} /><span><strong><HighlightText text={site.name} query={query} /></strong><small><HighlightText text={site.domain} query={query} /></small></span><ExternalLink size={14} /></button>)}</div>) : <div className="search-no-results">{t("Няма намерени сайтове")}</div>}</div>}</div>
+        {!dataReady && <div className="dashboard-state"><LoaderCircle size={22} className="spin" /> {t("Зареждаме твоите сайтове…")}</div>}
+        {dataError && <div className="dashboard-state error"><p>{dataError}</p><button className="cancel" onClick={() => void loadData()}>{t("Опитай отново")}</button></div>}
+        {dataReady && !dataError && <>{!query && searchFilter === "all" && favoriteSites.length > 0 && <SiteSection title={t("Любими")} icon="★" tone="favorite" sites={favoriteSites} t={t} onOpenSite={openSite} onToggleFavorite={toggleFavorite} onEdit={openEditSite} onDelete={setDeleteSiteTarget} highlightQuery={normalizedQuery} newlyAddedSiteId={newlyAddedSiteId} />}{!showInitialEmpty && groups.map(({ category, items }, index) => <SiteSection key={category.id} title={categoryLabels.get(category.id) ?? category.name} icon={category.icon} tone={category.tone} sites={items} t={t} category={category} isFirst={index === 0} isLast={index === groups.length - 1} collapsed={Boolean(collapsedCategories[category.id])} draggedCategoryId={draggedCategory} onManage={openCategoryManager} onMove={moveCategory} onDeleteCategory={setDeleteCategoryTarget} onChangeTone={() => void changeCategoryTone(category)} onCollapseAll={collapseAllCategories} onToggleCollapse={() => toggleCategoryCollapse(category.id)} onCategoryDragStart={startCategoryDrag} onCategoryDrop={dropCategory} onAddSite={openAddSite} onOpenSite={openSite} onToggleFavorite={toggleFavorite} onEdit={openEditSite} onDelete={setDeleteSiteTarget} draggedSiteId={draggedSiteId} dropTargetSiteId={dropTargetSiteId} siteOrderBusy={siteOrderBusy} onStartSiteDrag={startSiteDrag} onSiteDragOver={setDropTargetSiteId} onMoveSite={moveSite} onEndSiteDrag={() => { setDraggedSiteId(null); setDropTargetSiteId(null); }} highlightQuery={normalizedQuery} newlyAddedSiteId={newlyAddedSiteId} />)}{showInitialEmpty && <section className="onboarding">
+          <div className="onboarding-head">
+            <span className="onboarding-mark"><Sparkles size={22} /></span>
+            <div><h2>{t("Добре дошъл в WebVault")}</h2><p>{t("Пренеси отметките си, разгледай примерна колекция или започни от нулата.")}</p></div>
+          </div>
+          <div className="onboarding-options">
+            <button className="onboarding-option" onClick={openBookmarkImport}><span className="onboarding-icon"><Globe2 size={21} /></span><span><strong>{t("Импорт от Chrome")}</strong><small>{t("Качи HTML файл с отметки и запази папките.")}</small></span></button>
+            <button className="onboarding-option" onClick={openSampleCollection}><span className="onboarding-icon sample"><Sparkles size={21} /></span><span><strong>{t("Опитай примерна колекция")}</strong><small>{t("Прегледай подредено табло, преди да добавиш своите сайтове.")}</small></span></button>
+            <button className="onboarding-option" onClick={() => openAddSite()}><span className="onboarding-icon manual"><Plus size={21} /></span><span><strong>{t("Започни от нулата")}</strong><small>{t("Добави първия си сайт ръчно.")}</small></span></button>
+          </div>
+          <div className="onboarding-assurance"><span><Check size={15} />{t("Данните ти са твои — можеш да ги експортираш по всяко време.")}</span><span><Globe2 size={15} />{t(subscription.isPro ? "Синхронизацията е активна на всички твои устройства." : "Записите се пазят в личния ти акаунт. PRO ги синхронизира на всички устройства.")}</span></div>
+        </section>}{!showInitialEmpty && !groups.some(({ items }) => items.length) && <div className="empty"><Search size={26} /><h2>{t("Няма намерени сайтове")}</h2><p>{t("Опитай с друго име, адрес или категория.")}</p></div>}</>}
+        <footer><span>WebVault</span><span>{siteItems.length} {t("запазени сайта")} · {categories.length} {t("категории")}</span></footer>
+      </div>
+      {toastMessage && <div className="toast" role="status">{toastMessage}</div>}
+      <UpgradeModal open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog} reason={upgradeReason} language={language} />
+      <Dialog open={showSiteDialog} onOpenChange={(open) => open ? setShowSiteDialog(true) : closeSiteDialog()}>
+        <DialogContent className="dialog-panel">
+          <DialogHeader className="dialog-heading">
+            <span className="modal-icon">{editingSite ? <Pencil size={19} /> : <Plus size={20} />}</span>
+            <div>
+              <DialogTitle>{editingSite ? t("Редактирай сайт") : t("Добави нов сайт")}</DialogTitle>
+              <DialogDescription>{editingSite ? t("Промените и иконата ще се обновят веднага.") : t("Иконата на сайта ще се добави автоматично, когато е налична.")}</DialogDescription>
+            </div>
+          </DialogHeader>
+          <form onSubmit={submitSite}>
+            <label>{t("Адрес")}
+              <input value={siteDraft.url} onChange={(event) => { setSiteDraft((draft) => ({ ...draft, url: event.target.value })); metadataFetchedForRef.current = ""; }} onBlur={() => void fetchMetadataForUrl(siteDraft.url)} onPaste={(event) => { const pastedValue = event.clipboardData.getData("text"); window.setTimeout(() => void fetchMetadataForUrl(pastedValue), 0); }} placeholder="https://youtube.com" inputMode="url" required />
             </label>
             <label>{t("Име")}
               <input value={siteDraft.name} onChange={(event) => { titleTouchedRef.current = true; setSiteDraft((draft) => ({ ...draft, name: event.target.value })); }} placeholder={t("Напр. YouTube")} maxLength={120} autoFocus required />
