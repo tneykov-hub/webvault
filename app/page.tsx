@@ -318,7 +318,12 @@ const englishCategoryNames: Record<string, string> = {
   Работа: "Work",
   Новини: "News",
   Пазаруване: "Shopping",
+  Медиа: "Media",
   Медия: "Media",
+  Тенор: "Coach",
+  Тенис: "Tennis",
+  Тренер: "Coach",
+  Треньор: "Coach",
   Обучение: "Learning",
   Други: "Other",
 };

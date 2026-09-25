@@ -17,6 +17,9 @@ test("personalizes account names and keeps the dark settings menu readable", asy
   assert.match(authGate, /function AuthLanguageProvider/);
   assert.match(dashboard, /function avatarInitials/);
   assert.match(dashboard, /Имейл: "Email"/);
+  assert.match(dashboard, /Медиа: "Media"/);
+  assert.match(dashboard, /Тенор: "Coach"/);
+  assert.match(dashboard, /Тенис: "Tennis"/);
   assert.match(dashboard, /categoryDisplayName\(category\.name, language\)/);
   assert.match(dashboard, /onSaveDisplayName=\{saveDisplayName\}/);
   assert.doesNotMatch(dashboard, />TN</);
