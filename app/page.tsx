@@ -127,6 +127,7 @@ type InstallPromptEvent = Event & {
 };
 type DashboardLanguage = "en" | "bg";
 type SearchFilter = "all" | "favorites" | "recent" | "visited";
+type AISearchProvider = "chatgpt" | "gemini";
 
 const englishCopy: Record<string, string> = {
   "Всичко важно на едно място": "Everything important in one place",
@@ -142,6 +143,15 @@ const englishCopy: Record<string, string> = {
   "Добави сайт": "Add site",
   "Търси по име, адрес или категория…": "Search by name, address or category…",
   "Търси сайтове": "Search sites",
+  "AI търсачка": "AI search provider",
+  "Избери AI търсачка": "Choose an AI search provider",
+  "Избери предпочитаната AI търсачка. Можеш да я смениш и до полето за търсене.": "Choose your preferred AI search provider. You can also change it next to the search field.",
+  "Отваря избраната услуга и копира въпроса за поставяне в чата.": "Opens the selected service and copies the prompt for you to paste into the chat.",
+  "Отвори": "Open",
+  "Подканата е копирана. Постави я в отворения чат.": "Search prompt copied. Paste it into the AI chat that opened.",
+  "Подканата е копирана. Разреши новия раздел и я постави в чата.": "Search prompt copied. Allow the new tab and paste it into the chat.",
+  "Отвори AI чата и въведи търсенето ръчно.": "Open the AI chat and enter your search manually.",
+  "Разреши новия раздел или отвори AI асистента ръчно.": "Allow the new tab or open the AI assistant manually.",
   Изчисти: "Clear",
   "Зареждаме твоите сайтове…": "Loading your sites…",
   "Опитай отново": "Try again",
@@ -402,6 +412,7 @@ const emptySiteDraft: SiteDraft = {
 };
 const displayStorageKey = "my-sites-display-preferences";
 const collapsedStorageKey = "webvault-collapsed-categories";
+const aiSearchProviderStorageKey = "webvault-ai-search-provider";
 const palette = ["#16a9c7", "#6754d8", "#d87757", "#138a91", "#e14d3d", "#28a773", "#f48120", "#34445c"];
 const toneOrder = ["aqua", "violet", "amber", "blue", "rose", "green"];
 const allowedTones = new Set(toneOrder);
@@ -575,6 +586,7 @@ function Dashboard() {
   const { language, setLanguage, t } = useDashboardLanguage();
   const [profileDisplayName, setProfileDisplayName] = useState("");
   const [query, setQuery] = useState("");
+  const [aiSearchProvider, setAiSearchProvider] = useState<AISearchProvider>("chatgpt");
   const [searchFilter, setSearchFilter] = useState<SearchFilter>("all");
   const [dark, setDark] = useState(false);
   const [preferencesReady, setPreferencesReady] = useState(false);
@@ -659,6 +671,14 @@ function Dashboard() {
     } catch {
       setDark(window.matchMedia("(prefers-color-scheme: dark)").matches);
     }
+    try {
+      const savedAISearchProvider = window.localStorage.getItem(aiSearchProviderStorageKey);
+      if (savedAISearchProvider === "chatgpt" || savedAISearchProvider === "gemini") {
+        setAiSearchProvider(savedAISearchProvider);
+      }
+    } catch {
+      // Keep ChatGPT as the default when local storage is unavailable.
+    }
     setPreferencesReady(true);
   }, []);
 
@@ -668,6 +688,15 @@ function Dashboard() {
     window.localStorage.setItem(displayStorageKey, value);
     window.localStorage.setItem(collapsedStorageKey, JSON.stringify(collapsedCategories));
   }, [dark, collapsedCategories, preferencesReady]);
+
+  useEffect(() => {
+    if (!preferencesReady) return;
+    try {
+      window.localStorage.setItem(aiSearchProviderStorageKey, aiSearchProvider);
+    } catch {
+      // The provider remains usable for this session when local storage is unavailable.
+    }
+  }, [aiSearchProvider, preferencesReady]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("site-dark", dark);
@@ -708,6 +737,33 @@ function Dashboard() {
     setToastMessage(message);
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToastMessage(""), 2600);
+  }
+
+  async function openAISearch() {
+    const searchTerm = query.trim();
+    if (!searchTerm) return;
+
+    const providerUrl = aiSearchProvider === "chatgpt" ? "https://chatgpt.com/" : "https://gemini.google.com/app";
+    const prompt = language === "en" ? `Search the web for: ${searchTerm}` : `Потърси в интернет: ${searchTerm}`;
+    const copyPrompt = navigator.clipboard
+      ? navigator.clipboard.writeText(prompt).then(() => true).catch(() => false)
+      : Promise.resolve(false);
+
+    if (nativeApp) {
+      const opened = await openInNativeBrowser(providerUrl).catch(() => false);
+      if (!opened) window.open(providerUrl, "_blank", "noopener,noreferrer");
+    } else {
+      const openedWindow = window.open(providerUrl, "_blank");
+      if (openedWindow) openedWindow.opener = null;
+      else {
+        const copied = await copyPrompt;
+        announceToast(copied ? t("Подканата е копирана. Разреши новия раздел и я постави в чата.") : t("Разреши новия раздел или отвори AI асистента ръчно."));
+        return;
+      }
+    }
+
+    const copied = await copyPrompt;
+    announceToast(copied ? t("Подканата е копирана. Постави я в отворения чат.") : t("Отвори AI чата и въведи търсенето ръчно."));
   }
 
   async function loadData(background = false) {
@@ -1522,7 +1578,7 @@ function Dashboard() {
       </header>
       <div className="shell" id="top">
         <section className="intro"><div><span className="eyebrow"><Sparkles size={14} /> {t("Лично пространство")}</span><h1>{language === "en" ? `Good morning, ${displayName}.` : `Добро утро, ${displayName}.`}</h1><p>{t("Намери любимите си сайтове за секунди.")}</p></div><div className="primary-actions"><button className="category-button" onClick={openCategoryManager}><FolderPlus size={19} /><b>{t("Категории")}</b></button><button className="add-button" onClick={() => openAddSite()}><Plus size={20} /><b>{t("Добави сайт")}</b></button></div></section>
-        <div className="search-area"><div className="search-wrap"><Search size={21} /><input ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("Търси по име, адрес или категория…")} aria-label={t("Търси сайтове")} aria-controls="search-results" />{query && <button onClick={() => setQuery("")} aria-label={t("Изчисти")} title={t("Изчисти")}><X size={18} /></button>}<kbd>⌘ K</kbd></div><div className="search-filters" aria-label="Search filters"><button className={searchFilter === "all" ? "active" : ""} onClick={() => setSearchFilter("all")}><Check size={13} />{t("Всички")}</button><button className={searchFilter === "favorites" ? "active" : ""} onClick={() => setSearchFilter("favorites")}><Star size={13} />{t("Любими")}</button><button className={searchFilter === "recent" ? "active" : ""} onClick={() => setSearchFilter("recent")}><Clock3 size={13} />{t("Скорошни")}</button><button className={searchFilter === "visited" ? "active" : ""} onClick={() => setSearchFilter("visited")}><BarChart3 size={13} />{t("Най-посещавани")}</button></div><p className="search-hint">{t("Натисни K за търсене")}</p>{query.trim() && dataReady && <div className="search-results" id="search-results" role="listbox">{searchResultGroups.length ? searchResultGroups.map(({ category, items }) => <div className="search-result-group" key={category.id}><div className="search-result-heading"><span>{category.icon} {categoryLabels.get(category.id) ?? category.name}</span><small>{items.length}</small></div>{items.slice(0, 5).map((site) => <button className="search-result" key={site.id} onClick={() => focusSiteCard(site.id)} role="option" aria-selected="false"><SiteIcon site={site} /><span><strong><HighlightText text={site.name} query={query} /></strong><small><HighlightText text={site.domain} query={query} /></small></span><ExternalLink size={14} /></button>)}</div>) : <div className="search-no-results">{t("Няма намерени сайтове")}</div>}</div>}</div>
+        <div className="search-area"><div className="search-wrap"><Search size={21} /><input ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("Търси по име, адрес или категория…")} aria-label={t("Търси сайтове")} aria-controls="search-results" />{query && <button onClick={() => setQuery("")} aria-label={t("Изчисти")} title={t("Изчисти")}><X size={18} /></button>}<kbd>⌘ K</kbd></div><div className="search-filters" aria-label="Search filters"><button className={searchFilter === "all" ? "active" : ""} onClick={() => setSearchFilter("all")}><Check size={13} />{t("Всички")}</button><button className={searchFilter === "favorites" ? "active" : ""} onClick={() => setSearchFilter("favorites")}><Star size={13} />{t("Любими")}</button><button className={searchFilter === "recent" ? "active" : ""} onClick={() => setSearchFilter("recent")}><Clock3 size={13} />{t("Скорошни")}</button><button className={searchFilter === "visited" ? "active" : ""} onClick={() => setSearchFilter("visited")}><BarChart3 size={13} />{t("Най-посещавани")}</button></div><div className="ai-search-controls"><div className="ai-provider-picker" role="group" aria-label={t("Избери AI търсачка")}><span className="ai-provider-caption"><Sparkles size={14} />{t("AI търсачка")}</span><button type="button" className={aiSearchProvider === "chatgpt" ? "active" : ""} aria-pressed={aiSearchProvider === "chatgpt"} onClick={() => setAiSearchProvider("chatgpt")}>ChatGPT</button><button type="button" className={aiSearchProvider === "gemini" ? "active" : ""} aria-pressed={aiSearchProvider === "gemini"} onClick={() => setAiSearchProvider("gemini")}>Gemini</button></div><button type="button" className="ai-search-action" disabled={!query.trim()} onClick={() => void openAISearch()}><ExternalLink size={15} />{t("Отвори")} {aiSearchProvider === "chatgpt" ? "ChatGPT" : "Gemini"}</button></div><p className="search-hint">{t("Натисни K за търсене")}</p>{query.trim() && dataReady && <div className="search-results" id="search-results" role="listbox">{searchResultGroups.length ? searchResultGroups.map(({ category, items }) => <div className="search-result-group" key={category.id}><div className="search-result-heading"><span>{category.icon} {categoryLabels.get(category.id) ?? category.name}</span><small>{items.length}</small></div>{items.slice(0, 5).map((site) => <button className="search-result" key={site.id} onClick={() => focusSiteCard(site.id)} role="option" aria-selected="false"><SiteIcon site={site} /><span><strong><HighlightText text={site.name} query={query} /></strong><small><HighlightText text={site.domain} query={query} /></small></span><ExternalLink size={14} /></button>)}</div>) : <div className="search-no-results">{t("Няма намерени сайтове")}</div>}</div>}</div>
         {!dataReady && <div className="dashboard-state"><LoaderCircle size={22} className="spin" /> {t("Зареждаме твоите сайтове…")}</div>}
         {dataError && <div className="dashboard-state error"><p>{dataError}</p><button className="cancel" onClick={() => void loadData()}>{t("Опитай отново")}</button></div>}
         {dataReady && !dataError && <>{!query && searchFilter === "all" && favoriteSites.length > 0 && <SiteSection title={t("Любими")} icon="★" tone="favorite" sites={favoriteSites} t={t} onOpenSite={openSite} onToggleFavorite={toggleFavorite} onEdit={openEditSite} onDelete={setDeleteSiteTarget} highlightQuery={normalizedQuery} newlyAddedSiteId={newlyAddedSiteId} />}{!showInitialEmpty && groups.map(({ category, items }, index) => <SiteSection key={category.id} title={categoryLabels.get(category.id) ?? category.name} icon={category.icon} tone={category.tone} sites={items} t={t} category={category} isFirst={index === 0} isLast={index === groups.length - 1} collapsed={Boolean(collapsedCategories[category.id])} draggedCategoryId={draggedCategory} onManage={openCategoryManager} onMove={moveCategory} onDeleteCategory={setDeleteCategoryTarget} onChangeTone={() => void changeCategoryTone(category)} onCollapseAll={collapseAllCategories} onToggleCollapse={() => toggleCategoryCollapse(category.id)} onCategoryDragStart={startCategoryDrag} onCategoryDrop={dropCategory} onAddSite={openAddSite} onOpenSite={openSite} onToggleFavorite={toggleFavorite} onEdit={openEditSite} onDelete={setDeleteSiteTarget} draggedSiteId={draggedSiteId} dropTargetSiteId={dropTargetSiteId} siteOrderBusy={siteOrderBusy} onStartSiteDrag={startSiteDrag} onSiteDragOver={setDropTargetSiteId} onMoveSite={moveSite} onEndSiteDrag={() => { setDraggedSiteId(null); setDropTargetSiteId(null); }} highlightQuery={normalizedQuery} newlyAddedSiteId={newlyAddedSiteId} />)}{showInitialEmpty && <section className="onboarding">
@@ -1646,7 +1702,7 @@ function Dashboard() {
         </DialogContent>
       </Dialog>
       <Dialog open={showInstallDialog} onOpenChange={setShowInstallDialog}><DialogContent className="dialog-panel install-dialog"><DialogHeader className="dialog-heading"><span className="modal-icon"><Smartphone size={20} /></span><div><DialogTitle>{t("Инсталирай WebVault")}</DialogTitle><DialogDescription>{t("Отваряй приложението от началния екран като самостоятелно приложение.")}</DialogDescription></div></DialogHeader>{isInstalled ? <div className="install-status"><strong>{t("WebVault вече е инсталиран")}</strong><p>{t("Можеш да го отваряш директно от началния екран или менюто с приложения.")}</p></div> : installPrompt ? <div className="install-status"><strong>{t("Готово за инсталиране")}</strong><p>{t("Натисни бутона и потвърди инсталирането в браузъра.")}</p><button className="add-button" onClick={() => void installApp()}><Smartphone size={18} />{t("Инсталирай WebVault")}</button></div> : <div className="install-guides"><div><strong>{t("iPhone / iPad")}</strong><p>{t("Отвори менюто Share в Safari и избери „Add to Home Screen“.")}</p></div><div><strong>{t("Android / Windows")}</strong><p>{t("Отвори менюто на Chrome и избери „Install app“ или „Добавяне към началния екран“.")}</p></div></div>}<div className="modal-actions"><button className="cancel" onClick={() => setShowInstallDialog(false)}>{t("Затвори")}</button></div></DialogContent></Dialog>
-      <ProfileSettingsV2 key={`${showProfile ? "open" : "closed"}-${displayName}`} open={showProfile} onOpenChange={setShowProfile} email={session.user.email ?? ""} displayName={displayName} onSaveDisplayName={saveDisplayName} language={language} setLanguage={setLanguage} dark={dark} setDark={setDark} onSignOut={signOut} t={t} />
+      <ProfileSettingsV2 key={`${showProfile ? "open" : "closed"}-${displayName}`} open={showProfile} onOpenChange={setShowProfile} email={session.user.email ?? ""} displayName={displayName} onSaveDisplayName={saveDisplayName} language={language} setLanguage={setLanguage} aiSearchProvider={aiSearchProvider} setAISearchProvider={setAiSearchProvider} dark={dark} setDark={setDark} onSignOut={signOut} t={t} />
       <AlertDialog open={Boolean(deleteCategoryTarget)} onOpenChange={(open) => !open && setDeleteCategoryTarget(null)}><AlertDialogContent className="confirm-dialog"><AlertDialogHeader><AlertDialogTitle>{t("Да изтрия ли категорията?")} „{categoryDisplayName(deleteCategoryTarget?.name ?? "", language)}“?</AlertDialogTitle><AlertDialogDescription>{t("Категорията ще бъде премахната. Сайтовете в нея няма да се загубят — ще бъдат преместени в „Други“.")}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="cancel">{t("Отказ")}</AlertDialogCancel><AlertDialogAction className="delete-action" disabled={categoryBusy} onClick={() => void confirmDeleteCategory()}>{t("Изтрий категорията")}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog open={Boolean(deleteSiteTarget)} onOpenChange={(open) => !open && setDeleteSiteTarget(null)}><AlertDialogContent className="confirm-dialog"><AlertDialogHeader><AlertDialogTitle>{t("Да изтрия ли сайта?")} „{deleteSiteTarget?.name ?? ""}“?</AlertDialogTitle><AlertDialogDescription>{t("Това действие ще премахне сайта от твоя списък окончателно.")}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="cancel">{t("Отказ")}</AlertDialogCancel><AlertDialogAction className="delete-action" onClick={() => void confirmDeleteSite()}>{t("Изтрий сайта")}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </main>
@@ -1677,7 +1733,7 @@ function ProfileSettings({ open, onOpenChange, email, language, setLanguage, dar
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="dialog-panel profile-dialog"><DialogHeader className="dialog-heading"><span className="modal-icon"><UserCircle size={20} /></span><div><DialogTitle>{t("Профил и настройки")}</DialogTitle><DialogDescription>{t("Профилът ти")}</DialogDescription></div></DialogHeader><div className="profile-stack"><section className="profile-card"><div className="profile-card-heading"><UserCircle size={18} /><strong>{t("Имейл")}</strong></div><p className="profile-email">{email}</p><small>{t("Този имейл е свързан с акаунта ти.")}</small></section><section className="profile-card"><div className="profile-card-heading"><Settings2 size={18} /><strong>{t("Език")}</strong></div><div className="profile-choice-row"><button className={language === "en" ? "profile-choice active" : "profile-choice"} onClick={() => setLanguage("en")}>English</button><button className={language === "bg" ? "profile-choice active" : "profile-choice"} onClick={() => setLanguage("bg")}>Български</button></div></section><section className="profile-card"><div className="profile-card-heading"><Sun size={18} /><strong>{t("Тема")}</strong></div><div className="profile-choice-row"><button className={!dark ? "profile-choice active" : "profile-choice"} onClick={() => setDark(false)}>{t("Светла")}</button><button className={dark ? "profile-choice active" : "profile-choice"} onClick={() => setDark(true)}>{t("Тъмна")}</button></div></section><form className="profile-card profile-form" onSubmit={updatePassword}><div className="profile-card-heading"><KeyRound size={18} /><strong>{t("Смени паролата")}</strong></div><label>{t("Нова парола")}<input type="password" value={password} onChange={(event) => { setPassword(event.target.value); resetFeedback(); }} placeholder={t("Въведи нова парола")} minLength={8} autoComplete="new-password" /></label><label>{t("Потвърди новата парола")}<input type="password" value={confirmation} onChange={(event) => { setConfirmation(event.target.value); resetFeedback(); }} placeholder={t("Потвърди новата парола")} minLength={8} autoComplete="new-password" /></label>{error && <p className="form-error">{error}</p>}{message && <p className="import-success">{message}</p>}<button className="add-button" disabled={busy}>{busy ? <LoaderCircle size={17} className="spin" /> : <KeyRound size={17} />}{t("Запази паролата")}</button></form></div><div className="profile-footer"><button className="text-button danger-item" onClick={() => void onSignOut()}><LogOut size={16} />{t("Излез от акаунта")}</button><button className="add-button" onClick={() => onOpenChange(false)}>{t("Готово")}</button></div></DialogContent></Dialog>;
 }
 
-function ProfileSettingsV2({ open, onOpenChange, email, displayName, onSaveDisplayName, language, setLanguage, dark, setDark, onSignOut, t }: {
+function ProfileSettingsV2({ open, onOpenChange, email, displayName, onSaveDisplayName, language, setLanguage, aiSearchProvider, setAISearchProvider, dark, setDark, onSignOut, t }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   email: string;
@@ -1685,6 +1741,8 @@ function ProfileSettingsV2({ open, onOpenChange, email, displayName, onSaveDispl
   onSaveDisplayName: (name: string) => Promise<string | null>;
   language: DashboardLanguage;
   setLanguage: (language: DashboardLanguage) => void;
+  aiSearchProvider: AISearchProvider;
+  setAISearchProvider: (provider: AISearchProvider) => void;
   dark: boolean;
   setDark: (dark: boolean) => void;
   onSignOut: () => Promise<void>;
@@ -1771,7 +1829,7 @@ function ProfileSettingsV2({ open, onOpenChange, email, displayName, onSaveDispl
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="dialog-panel profile-dialog"><DialogHeader className="dialog-heading"><span className="modal-icon"><UserCircle size={20} /></span><div><DialogTitle>{t("Профил и настройки")}</DialogTitle><DialogDescription>{t("Профилът ти")}</DialogDescription></div></DialogHeader><div className="profile-stack">
     <form className="profile-card profile-form" onSubmit={updateDisplayName}><div className="profile-card-heading"><UserCircle size={18} /><strong>{t("Име в профила")}</strong></div><small>{t("Това име се вижда в поздрава и аватара.")}</small><label><input value={displayNameDraft} onChange={(event) => { setDisplayNameDraft(event.target.value); resetFeedback(); }} placeholder={t("Въведи име за профила")} minLength={2} maxLength={80} autoComplete="name" required /></label><button className="add-button" disabled={nameBusy}>{nameBusy ? <LoaderCircle size={17} className="spin" /> : <UserCircle size={17} />}{t("Запази името")}</button></form>
     <section className="profile-card"><div className="profile-card-heading"><UserCircle size={18} /><strong>{t("Имейл")}</strong></div><p className="profile-email">{email}</p><small>{t("Този имейл е свързан с акаунта ти.")}</small></section>
-    <section className="profile-card"><div className="profile-card-heading"><Settings2 size={18} /><strong>{t("Език")}</strong></div><div className="profile-choice-row"><button className={language === "en" ? "profile-choice active" : "profile-choice"} onClick={() => setLanguage("en")}>English</button><button className={language === "bg" ? "profile-choice active" : "profile-choice"} onClick={() => setLanguage("bg")}>Български</button></div></section>
+    <section className="profile-card"><div className="profile-card-heading"><Settings2 size={18} /><strong>{t("Език")}</strong></div><div className="profile-choice-row"><button className={language === "en" ? "profile-choice active" : "profile-choice"} onClick={() => setLanguage("en")}>English</button><button className={language === "bg" ? "profile-choice active" : "profile-choice"} onClick={() => setLanguage("bg")}>Български</button></div></section><section className="profile-card"><div className="profile-card-heading"><Sparkles size={18} /><strong>{t("AI търсачка")}</strong></div><small>{t("Избери предпочитаната AI търсачка. Можеш да я смениш и до полето за търсене.")}</small><small>{t("Отваря избраната услуга и копира въпроса за поставяне в чата.")}</small><div className="profile-choice-row"><button type="button" className={aiSearchProvider === "chatgpt" ? "profile-choice active" : "profile-choice"} aria-pressed={aiSearchProvider === "chatgpt"} onClick={() => setAISearchProvider("chatgpt")}>ChatGPT</button><button type="button" className={aiSearchProvider === "gemini" ? "profile-choice active" : "profile-choice"} aria-pressed={aiSearchProvider === "gemini"} onClick={() => setAISearchProvider("gemini")}>Gemini</button></div></section>
     <section className="profile-card"><div className="profile-card-heading"><Sun size={18} /><strong>{t("Тема")}</strong></div><div className="profile-choice-row"><button className={!dark ? "profile-choice active" : "profile-choice"} onClick={() => setDark(false)}>{t("Светла")}</button><button className={dark ? "profile-choice active" : "profile-choice"} onClick={() => setDark(true)}>{t("Тъмна")}</button></div></section>
     <form className="profile-card profile-form" onSubmit={updatePassword}><div className="profile-card-heading"><KeyRound size={18} /><strong>{t("Смени паролата")}</strong></div><label>{t("Нова парола")}<input type="password" value={password} onChange={(event) => { setPassword(event.target.value); resetFeedback(); }} placeholder={t("Въведи нова парола")} minLength={8} autoComplete="new-password" /></label><label>{t("Потвърди новата парола")}<input type="password" value={confirmation} onChange={(event) => { setConfirmation(event.target.value); resetFeedback(); }} placeholder={t("Потвърди новата парола")} minLength={8} autoComplete="new-password" /></label><button className="add-button" disabled={passwordBusy}>{passwordBusy ? <LoaderCircle size={17} className="spin" /> : <KeyRound size={17} />}{t("Запази паролата")}</button></form>
     <section className="profile-card"><div className="profile-card-heading"><Trash2 size={18} /><strong>{t("Изтриване на акаунта")}</strong></div><small>{t("Изтриваш окончателно профила, отметките, категориите, устройства и качените икони. Ако имаш активен абонамент през Stripe, той ще бъде отменен.")}</small><div className="profile-account-actions"><button type="button" className="profile-choice" onClick={openDeletionResource}>{t("Политика и помощ")}</button><button type="button" className="profile-choice danger-item" onClick={() => { resetFeedback(); setConfirmAccountDeletion(true); }}><Trash2 size={15} />{t("Изтрий акаунта")}</button></div></section>

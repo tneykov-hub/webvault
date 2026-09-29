@@ -2217,6 +2217,80 @@ footer span:first-child {
   background: #38305f;
   color: #ded7ff;
 }
+.ai-search-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 11px;
+}
+.ai-provider-picker {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+}
+.ai-provider-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+.ai-provider-picker button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  transition: 0.16s ease;
+}
+.ai-provider-picker button:hover,
+.ai-provider-picker button.active {
+  background: #eeeaff;
+  color: #5f4bc4;
+}
+.site-dark .ai-provider-picker button:hover,
+.site-dark .ai-provider-picker button.active {
+  background: #38305f;
+  color: #ded7ff;
+}
+.ai-search-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-left: auto;
+  border: 1px solid #8d80dc;
+  border-radius: 999px;
+  background: #eeeaff;
+  color: #5f4bc4;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 800;
+  transition: 0.16s ease;
+}
+.ai-search-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+.ai-search-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+.site-dark .ai-search-action {
+  border-color: #8774dc;
+  background: #38305f;
+  color: #ded7ff;
+}
 .search-hint {
   margin: 8px 2px 0;
   color: var(--muted);
@@ -2225,7 +2299,7 @@ footer span:first-child {
 .search-results {
   position: absolute;
   z-index: 5;
-  top: 68px;
+  top: 100%;
   left: 0;
   right: 0;
   max-height: min(420px, 60vh);
@@ -2539,13 +2613,19 @@ mark {
 }
 @media (max-width: 560px) {
   .search-results {
-    top: 64px;
+    top: 100%;
   }
   .search-filters {
     gap: 5px;
   }
   .search-filters button {
     padding: 6px 8px;
+  }
+  .ai-search-controls {
+    gap: 7px;
+  }
+  .ai-search-action {
+    margin-left: 0;
   }
   .site-card-content {
     padding: 14px 11px;

@@ -1,5 +1,13 @@
 # WebVault — HANDOFF
 
+## 29 September 2026 — AI search shortcut and latest-source check
+
+- Confirmed the latest GitHub `main` is `68e02959a98a26c52b4d67976f05ca216a03f867` (`Add Google Play button to landing page`, 26 September 2026, 06:15 UTC). The local source tree matched that commit before this change; the work is on branch `codex/ai-search-20260929`.
+- The dashboard keeps its instant local bookmark search and now lets users choose ChatGPT or Gemini beside the search field. The preferred provider is also selectable in **Profile & settings** and is saved in browser local storage.
+- Selecting **Open ChatGPT/Gemini** opens that provider and copies a web-search prompt in the selected WebVault language. The user pastes and submits it in the provider. This API-free shortcut does not return AI answers inside WebVault or send AI requests from a WebVault server. A future in-app AI search needs a protected provider key, usage controls and cost limits.
+- Verification: `npm run vercel-build`, `npm run mobile:build`, `npx tsc --noEmit` and `npm run lint` passed (lint has six warnings in existing code). `npm test` is blocked because the checked-out source has no `build/sites-vite-plugin` imported by `vite.config.ts`; running the test files directly gives 9 passes and 4 failures in unrelated landing-page/privacy assertions or tests that expect generated `dist` files. That run also logs that port 24678 is already in use.
+- This change has not been committed, deployed, or submitted to either app store.
+
 ## 22 September 2026 — Google Play privacy and account deletion readiness
 
 - The Google Play compliance source updates are implemented locally and use the public support address `tneykov@gmail.com` (support and account-deletion requests only).
