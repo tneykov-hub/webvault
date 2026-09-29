@@ -6,7 +6,8 @@
 - The dashboard keeps its instant local bookmark search and now lets users choose ChatGPT or Gemini beside the search field. The preferred provider is also selectable in **Profile & settings** and is saved in browser local storage.
 - Selecting **Open ChatGPT/Gemini** opens that provider and copies a web-search prompt in the selected WebVault language. The user pastes and submits it in the provider. This API-free shortcut does not return AI answers inside WebVault or send AI requests from a WebVault server. A future in-app AI search needs a protected provider key, usage controls and cost limits.
 - Verification: `npm run vercel-build`, `npm run mobile:build`, `npx tsc --noEmit` and `npm run lint` passed (lint has six warnings in existing code). `npm test` is blocked because the checked-out source has no `build/sites-vite-plugin` imported by `vite.config.ts`; running the test files directly gives 9 passes and 4 failures in unrelated landing-page/privacy assertions or tests that expect generated `dist` files. That run also logs that port 24678 is already in use.
-- This change has not been committed, deployed, or submitted to either app store.
+- Published to production from GitHub commit `c70f647ae65dcb7df23f13f2ec0d0d503bbf1115`; Vercel marked the deployment READY and assigned `webvault.site`. Verified the live home page returns HTTP 200 and its deployed JavaScript contains the saved provider setting, ChatGPT and Gemini destinations. Vercel reported no runtime errors in the preceding hour.
+- This is a web release only. The Android package and Play Store release remain unchanged and will be handled separately.
 
 ## 22 September 2026 — Google Play privacy and account deletion readiness
 
