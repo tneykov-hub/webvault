@@ -1,5 +1,16 @@
 # WebVault — HANDOFF
 
+## 30 September 2026 — PRO-only in-app ChatGPT web search
+
+- Work is on branch `codex/chatgpt-pro-search-20260930`, based on production `main` commit `3e71f1df177a0591ebd3a96626838a7225073a53`.
+- Replaced the API-free ChatGPT/Gemini shortcut picker with a single **ChatGPT search** action that returns the answer directly inside WebVault. Gemini is no longer offered as an AI-search provider.
+- ChatGPT search is gated twice for paid access: the dashboard opens the existing PRO upgrade dialog for Free accounts, and the new server route `app/api/ai/search/route.ts` independently authenticates the Supabase bearer token and verifies the user's server-side WebVault PRO subscription state before calling OpenAI.
+- The OpenAI key is server-only. The route reads `OPENAI_API_KEY` and never sends it to the browser or native bundle. `.env.example` documents `OPENAI_API_KEY` plus optional `OPENAI_SEARCH_MODEL`; the default model is `gpt-5.6-luna`.
+- The route uses the OpenAI Responses API with the `web_search` tool, `store: false`, low search context, a 500-character input limit and a 700-output-token cap. Web URL citations are returned to WebVault as source buttons below the answer.
+- Pricing and upgrade UI now list ChatGPT web search as a PRO feature. Profile & settings explains that ChatGPT search runs inside WebVault and requires PRO.
+- **Configuration still required before a live AI request can succeed:** add the newly created restricted OpenAI key to the Vercel project as the server-only environment variable `OPENAI_API_KEY` (Preview for preview testing; Production before production promotion). Do not paste the key into chat, GitHub, source code, or any `NEXT_PUBLIC_*` variable.
+- Verification/deployment status: source changes are complete on the branch. Preview build and runtime test are pending. No production deployment has been made for this milestone.
+
 ## 29 September 2026 — AI search shortcut and latest-source check
 
 - Confirmed the latest GitHub `main` is `68e02959a98a26c52b4d67976f05ca216a03f867` (`Add Google Play button to landing page`, 26 September 2026, 06:15 UTC). The local source tree matched that commit before this change; the work is on branch `codex/ai-search-20260929`.
