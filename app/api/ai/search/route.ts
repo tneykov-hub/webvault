@@ -126,6 +126,7 @@ export async function POST(request: Request) {
         reasoning: { effort: "none" },
         max_output_tokens: maxOutputTokens,
         tools: [{ type: "web_search", search_context_size: "low" }],
+        tool_choice: "required",
         input: [
           {
             role: "developer",
