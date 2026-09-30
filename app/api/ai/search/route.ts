@@ -98,7 +98,10 @@ export async function POST(request: Request) {
     const subscriptionStatus = typeof profile?.stripe_subscription_status === "string"
       ? profile.stripe_subscription_status
       : null;
-    const hasProAccess = profile?.is_pro === true && subscriptionGrantsProAccess(subscriptionStatus);
+    // This status is an administrator-granted entitlement in protected profile columns.
+    const hasFounderProAccess = subscriptionStatus === "manual_founder";
+    const hasProAccess = profile?.is_pro === true
+      && (subscriptionGrantsProAccess(subscriptionStatus) || hasFounderProAccess);
     if (!hasProAccess) {
       return json(request, { error: "ChatGPT search requires an active WebVault PRO subscription." }, 403);
     }
