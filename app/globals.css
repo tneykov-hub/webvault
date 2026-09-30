@@ -2291,6 +2291,114 @@ footer span:first-child {
   background: #38305f;
   color: #ded7ff;
 }
+.ai-pro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+  border-radius: 999px;
+  background: #f0ecff;
+  color: #644fc6;
+  padding: 5px 8px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+.site-dark .ai-pro-badge {
+  background: #43396f;
+  color: #e5dfff;
+}
+.ai-search-error {
+  margin: 10px 2px 0;
+  color: #c73f4a;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ai-answer-panel {
+  margin-top: 12px;
+  border: 1px solid color-mix(in srgb, #8174dc 38%, var(--line));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card) 96%, #8174dc 4%);
+  padding: 14px;
+  box-shadow: 0 15px 34px rgba(45, 38, 95, 0.1);
+}
+.ai-answer-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ai-answer-heading > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #5f4bc4;
+  font-size: 12px;
+  font-weight: 900;
+}
+.ai-answer-heading > button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+.ai-answer-heading > button:hover {
+  background: var(--soft);
+  color: var(--text);
+}
+.ai-answer-text {
+  margin: 10px 0 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+.ai-answer-sources {
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+.ai-answer-sources > strong {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.ai-answer-sources > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ai-answer-sources button {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  padding: 6px 9px;
+  font-size: 10px;
+  font-weight: 750;
+}
+.ai-answer-sources button:hover {
+  border-color: #8d80dc;
+  color: #5f4bc4;
+}
+.site-dark .ai-answer-panel {
+  background: color-mix(in srgb, var(--card) 93%, #4a3d78 7%);
+}
+.site-dark .ai-answer-heading > span,
+.site-dark .ai-answer-sources button:hover {
+  color: #ded7ff;
+}
 .search-hint {
   margin: 8px 2px 0;
   color: var(--muted);
