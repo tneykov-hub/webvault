@@ -1,5 +1,17 @@
 # WebVault — HANDOFF
 
+## 30 September 2026 — Android 1.0.2 source update
+
+- Prepared the Android update on `codex/android-chatgpt-update-20260930` from the latest published web source `8215fb591d30458a40bbe92d5bb491e8e493b89c`. The shared dashboard/API code is unchanged from that published source.
+- Restored the existing Capacitor Android foundation from the locally retained Android project, preserving `site.webvault.app`, the native auth callback, app icons, secure-browser plugins and existing security settings. The foundation was previously supplied in the Android source archives but was absent from GitHub `main`; its source is now included on this update branch.
+- Increased Android `versionName` from `1.0.1` to `1.0.2` and `versionCode` from 2 to 3. The highest code currently uploaded to Play Console is unverified; check it before signing and increment again if code 3 is already used.
+- Built the latest local mobile production bundle and synchronized it into `android/app/src/main/assets/public`. Both generated output folders were cleaned before the final sync to remove older JavaScript chunks. The Android dashboard now includes the published in-app ChatGPT search, paid-PRO server authorization and source buttons. Gemini is no longer offered as an AI-search provider.
+- Android calls `https://webvault.site/api/ai/search` with its Supabase bearer token. The OpenAI key remains server-only. Live preflight checks for `https://localhost`, `http://localhost` and `capacitor://localhost` returned HTTP 204 with Authorization/Content-Type allowed. An anonymous Android-origin POST returned HTTP 401 with the matching CORS header.
+- Verification passed: `npm run cap:sync:android`, `npx tsc --noEmit`, `npm run vercel-build`, source/Android-asset byte comparison, app ID/security/deep-link checks and a compiled-bundle scan for the ChatGPT endpoint and absence of server secret identifiers. Lint exposed a pre-existing `react-hooks/purity` error for `Date.now()` in the icon-upload event flow plus six warnings; no shared dashboard behavior was changed to suppress it.
+- The native Gradle project targets SDK 36 / Java 21. This execution environment has no Android SDK and only Java 17, so no Gradle APK/AAB build or Android device run was performed. No owner upload keystore was present in the supplied archives or project.
+- Prepared `ANDROID_UPDATE_BG.md`, updated `ANDROID_SETUP.md`, and added bilingual `ANDROID_RELEASE_NOTES.md` for signing and submitting the update from Android Studio with the existing upload key. Signing credentials are excluded from Git and the archive.
+- This is a prepared Android source release, not a Google Play rollout. A signed AAB, an Android device check and the Play Console upload/review remain outstanding. A real successful ChatGPT response also remains unverified because no eligible active/trialing PRO account was available during the earlier verification.
+
 ## 30 September 2026 — PRO-only in-app ChatGPT web search
 
 - Published the verified branch `codex/chatgpt-pro-search-20260930` to production `main` on 30 September 2026 after the user's explicit publication instruction. The code release commit is `2fd218a5763a4a3b538be49832c5ac0c5d1ff13e`, based on the previous production commit `3e71f1df177a0591ebd3a96626838a7225073a53`.

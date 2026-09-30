@@ -32,9 +32,19 @@ Deploy the matching WebVault web source before testing the app. The native bundl
    ```
 
 3. In Android Studio, wait for Gradle sync, choose an emulator or USB-connected Android phone, then press Run.
-4. Before a Google Play release, create a signing key, update `versionCode` and `versionName` in `android/app/build.gradle`, then generate a signed Android App Bundle (AAB).
+4. For an update to the existing Google Play app, select its existing upload keystore in Android Studio, then generate a signed Android App Bundle (AAB). Keep the application ID `site.webvault.app`.
 
 After any WebVault UI change, run `npm run cap:sync:android` before rebuilding in Android Studio.
+
+## 30 September 2026 update
+
+- The prepared Android source is version **1.0.2**, `versionCode 3`, based on the published web source `8215fb591d30458a40bbe92d5bb491e8e493b89c`.
+- The bundled dashboard now includes in-app ChatGPT web search for PRO. Gemini is no longer an AI-search provider. Existing local bookmark filtering remains available to Free accounts.
+- Native ChatGPT requests use `https://webvault.site/api/ai/search` and the signed-in user's Supabase bearer token. The deployed server verifies both the PRO flag and an active/trialing subscription. The OpenAI key is configured only on the server.
+- The local mobile production build and Capacitor Android sync have completed. Native callbacks, app icons, secure-browser opening, disabled cleartext traffic and disabled Android backups are retained.
+- This Android project uses Android SDK 36 and Java 21. In Android Studio use its Java 21 Gradle JDK and install the SDK version requested during sync.
+- Before upload, check the highest version code already used in **Play Console → App bundle explorer**. Code 3 was selected from the previous local Android code 2; the current Play Console maximum has not been verified. If 3 has already been used, set a higher `versionCode` in `android/app/build.gradle` before generating the signed bundle.
+- See `ANDROID_UPDATE_BG.md` for the Windows signing/upload steps and `ANDROID_RELEASE_NOTES.md` for the Google Play release text.
 
 ## Google Play note
 
