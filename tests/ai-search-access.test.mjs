@@ -13,8 +13,8 @@ const routeCode = compile(routeSource);
 const plans = { exports: {} };
 vm.runInNewContext(compile(plansSource), { exports: plans.exports });
 
-function createRoute({ profile, authError, databaseError, apiKey = "test-provider-key" }) {
-  const calls = { provider: 0, database: 0 };
+function createRoute({ profile, authError, databaseError, apiKey = "test-provider-key", providerFailure }) {
+  const calls = { provider: 0, database: 0, errors: [] };
   const route = { exports: {} };
   const userId = "verified-auth-user";
   const modules = {
@@ -52,11 +52,14 @@ function createRoute({ profile, authError, databaseError, apiKey = "test-provide
       return modules[name];
     },
     process: { env: { OPENAI_API_KEY: apiKey } },
-    console: { error() {} },
+    console: { error: (...args) => calls.errors.push(args) },
     Map,
     fetch: async (url) => {
       assert.equal(url, "https://api.openai.com/v1/responses");
       calls.provider += 1;
+      if (providerFailure) {
+        return Response.json({ error: providerFailure }, { status: 429 });
+      }
       return Response.json({ output: [{ type: "message", content: [{ type: "output_text", text: "Search answer", annotations: [] }] }] });
     },
   });
@@ -124,4 +127,30 @@ test("does not treat missing provider configuration as a Free-plan denial for th
   const { response, calls } = await search({ profile: { is_pro: true, stripe_subscription_status: "manual_founder" }, apiKey: "" });
   assert.equal(response.status, 503);
   assert.equal(calls.provider, 0);
+});
+
+for (const code of ["insufficient_quota", "rate_limit_exceeded"]) {
+  test(`records the provider's ${code} label without exposing its raw error message`, async () => {
+    const { response, calls } = await search({
+      profile: { is_pro: true, stripe_subscription_status: "manual_founder" },
+      providerFailure: { code, type: "rate_limit_error", message: "Private provider message with query and credentials" },
+    });
+    assert.equal(response.status, 502);
+    assert.equal((await response.json()).error, "ChatGPT search is temporarily unavailable.");
+    assert.equal(calls.provider, 1);
+    assert.equal(calls.errors[0][1].code, code);
+    assert.equal(calls.errors[0][1].type, "rate_limit_error");
+    assert.ok(!JSON.stringify(calls.errors).includes("Private provider message"));
+  });
+}
+
+test("discards unexpected provider error labels instead of logging arbitrary strings", async () => {
+  const { response, calls } = await search({
+    profile: { is_pro: true, stripe_subscription_status: "manual_founder" },
+    providerFailure: { code: "sensitive value", type: "sensitive/value", message: "Private provider message" },
+  });
+  assert.equal(response.status, 502);
+  assert.equal(calls.errors[0][1].code, null);
+  assert.equal(calls.errors[0][1].type, null);
+  assert.ok(!JSON.stringify(calls.errors).includes("sensitive"));
 });

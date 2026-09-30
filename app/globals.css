@@ -1956,7 +1956,8 @@ footer span:first-child {
   box-shadow: 0 8px 20px #805fd13d;
 }
 .go-pro:hover { filter: brightness(1.08); transform: translateY(-1px); }
-.pro-badge {
+.pro-badge,
+.ai-pro-badge {
   border: 1px solid #facc1580;
   background: #facc1518;
   color: #f8d85f;
@@ -2297,16 +2298,10 @@ footer span:first-child {
   gap: 4px;
   margin-right: 4px;
   border-radius: 999px;
-  background: #f0ecff;
-  color: #644fc6;
   padding: 5px 8px;
   font-size: 9px;
   font-weight: 900;
   letter-spacing: 0.04em;
-}
-.site-dark .ai-pro-badge {
-  background: #43396f;
-  color: #e5dfff;
 }
 .ai-search-error {
   margin: 10px 2px 0;

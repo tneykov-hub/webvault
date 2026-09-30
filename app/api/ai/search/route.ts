@@ -9,6 +9,10 @@ export const runtime = "nodejs";
 const maxQueryLength = 500;
 const maxOutputTokens = 700;
 
+function providerErrorLabel(value: unknown): string | null {
+  return typeof value === "string" && /^[a-z0-9_]{1,80}$/.test(value) ? value : null;
+}
+
 type OpenAIUrlCitation = {
   type?: unknown;
   title?: unknown;
@@ -146,9 +150,14 @@ export async function POST(request: Request) {
     const requestId = openAIResponse.headers.get("x-request-id");
     const payload = await openAIResponse.json().catch(() => ({})) as Record<string, unknown>;
     if (!openAIResponse.ok) {
+      const providerError = payload.error && typeof payload.error === "object"
+        ? payload.error as Record<string, unknown>
+        : {};
       console.error("WebVault ChatGPT search OpenAI error", {
         status: openAIResponse.status,
         requestId,
+        code: providerErrorLabel(providerError.code),
+        type: providerErrorLabel(providerError.type),
       });
       return json(request, { error: "ChatGPT search is temporarily unavailable." }, 502);
     }
