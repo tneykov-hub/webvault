@@ -2,14 +2,18 @@
 
 ## 30 September 2026 — PRO-only in-app ChatGPT web search
 
-- Work is on branch `codex/chatgpt-pro-search-20260930`, based on production `main` commit `3e71f1df177a0591ebd3a96626838a7225073a53`.
+- Published the verified branch `codex/chatgpt-pro-search-20260930` to production `main` on 30 September 2026 after the user's explicit publication instruction. The code release commit is `2fd218a5763a4a3b538be49832c5ac0c5d1ff13e`, based on the previous production commit `3e71f1df177a0591ebd3a96626838a7225073a53`.
 - Replaced the API-free ChatGPT/Gemini shortcut picker with a single **ChatGPT search** action that returns the answer directly inside WebVault. Gemini is no longer offered as an AI-search provider.
 - ChatGPT search is gated twice for paid access: the dashboard opens the existing PRO upgrade dialog for Free accounts, and the new server route `app/api/ai/search/route.ts` independently authenticates the Supabase bearer token and verifies the user's server-side WebVault PRO subscription state before calling OpenAI.
 - The OpenAI key is server-only. The route reads `OPENAI_API_KEY` and never sends it to the browser or native bundle. `.env.example` documents `OPENAI_API_KEY` plus optional `OPENAI_SEARCH_MODEL`; the default model is `gpt-5.6-luna`.
 - The route uses the OpenAI Responses API with the `web_search` tool required on every AI query, `store: false`, low search context, a 500-character input limit and a 700-output-token cap. Web URL citations are returned to WebVault as source buttons below the answer.
 - Pricing and upgrade UI now list ChatGPT web search as a PRO feature. Profile & settings explains that ChatGPT search runs inside WebVault and requires PRO.
-- **Configuration still required before a live AI request can succeed:** add the newly created restricted OpenAI key to the Vercel project as the server-only environment variable `OPENAI_API_KEY` (Preview for preview testing; Production before production promotion). Do not paste the key into chat, GitHub, source code, or any `NEXT_PUBLIC_*` variable.
-- Verification/deployment status: the latest code preview deployment `dpl_J6HjVYeNG6MfVK2XVtqZh6hy8zd2` for commit `8d477ba34c699818610c0e4a14d1515a34d959ec` reached **READY** at `https://my-sites-bookmark-manager-kz8u15s33-tneykov-8790s-projects.vercel.app`. A real ChatGPT request still requires `OPENAI_API_KEY` in the Preview environment. No production deployment has been made for this milestone.
+- **Configuration and live verification:** `OPENAI_API_KEY` must be configured as a server-only Vercel environment variable (Preview for preview testing; Production for the public site). Its presence and a successful paid-PRO OpenAI request have not been confirmed during this verification. Do not paste the key into chat, GitHub, source code, or any `NEXT_PUBLIC_*` variable.
+- Deployment: production deployment `dpl_EU9fFBB52TQfMdwk5TPmFuJJcnvd` for release commit `2fd218a5763a4a3b538be49832c5ac0c5d1ff13e` reached **READY** at `https://my-sites-bookmark-manager-rg13yoqfe-tneykov-8790s-projects.vercel.app`; Vercel assigned `webvault.site` to this deployment. The latest checked Preview was `dpl_GQe8BBqKcTDqzRVXmEtupTNRU6ZF` for the same commit.
+- Live production checks: `/` and `/pricing` returned HTTP 200. `POST /api/ai/search` returned HTTP 401 without authentication and with an invalid bearer token. No production runtime error/fatal entries were reported in the deployment-scoped ten-minute check.
+- Access-control verification: 11 isolated scenarios against the exact Preview route source passed, including Free and non-active subscriptions returning 403 before any provider call, configuration/database failures failing closed, and mocked active/trialing PRO requests returning 200. These were simulations, not real signed-in paid searches.
+- A real successful AI answer remains unverified. At verification time Supabase contained zero profiles with both `is_pro = true` and an `active`/`trialing` subscription. The existing test account has a PRO flag but no active subscription status, so it is denied by this route. No subscription or account flags were changed.
+- This release updates the web application only; the Android package and Play Store release still require a separate build and submission.
 
 ## 29 September 2026 — AI search shortcut and latest-source check
 
