@@ -9,7 +9,7 @@
 - The route uses the OpenAI Responses API with the `web_search` tool, `store: false`, low search context, a 500-character input limit and a 700-output-token cap. Web URL citations are returned to WebVault as source buttons below the answer.
 - Pricing and upgrade UI now list ChatGPT web search as a PRO feature. Profile & settings explains that ChatGPT search runs inside WebVault and requires PRO.
 - **Configuration still required before a live AI request can succeed:** add the newly created restricted OpenAI key to the Vercel project as the server-only environment variable `OPENAI_API_KEY` (Preview for preview testing; Production before production promotion). Do not paste the key into chat, GitHub, source code, or any `NEXT_PUBLIC_*` variable.
-- Verification/deployment status: source changes are complete on the branch. Preview build and runtime test are pending. No production deployment has been made for this milestone.
+- Verification/deployment status: Vercel preview deployment `dpl_2LRqxV3fUSxBcEw4VD38JsidKpT2` for commit `57be3b87ce0b8768192f13e672de80792d94ca14` reached **READY** at `https://my-sites-bookmark-manager-ju59vrpi8-tneykov-8790s-projects.vercel.app`. A real ChatGPT request still requires `OPENAI_API_KEY` in the Preview environment. No production deployment has been made for this milestone.
 
 ## 29 September 2026 — AI search shortcut and latest-source check
 
