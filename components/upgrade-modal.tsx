@@ -13,7 +13,7 @@ export function UpgradeModal({ open, onOpenChange, reason, language }: { open: b
     annual: "или 29 € / година",
     sites: "Неограничени сайтове и категории",
     sync: "Sync на всички устройства и неограничен import",
-    extras: "ChatGPT търсене, custom иконки, PWA и приоритетна поддръжка",
+    extras: "ChatGPT търсене, персонални иконки, PWA и приоритетна поддръжка",
     cancel: "Не сега",
     upgrade: "Стани PRO",
     free: `FREE включва до ${FREE_SITE_LIMIT} сайта, ${FREE_CATEGORY_LIMIT} категории и 1 устройство.`,
