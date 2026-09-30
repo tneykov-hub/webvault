@@ -2,6 +2,12 @@
 
 WebVault is a private bookmark dashboard with Supabase authentication and sync. The Capacitor projects and handoff instructions are in [IOS_SETUP.md](IOS_SETUP.md), [ANDROID_SETUP.md](ANDROID_SETUP.md) and [HANDOFF.md](HANDOFF.md).
 
+## In-app AI web search
+
+WebVault PRO accounts can search the web with ChatGPT from the dashboard search field. FREE accounts keep instant local bookmark search. The `/api/ai/search` route authenticates the session and checks the server-managed `profiles.is_pro` entitlement on every request before calling OpenAI; it returns `403 pro_required` for FREE accounts and fails closed if the entitlement cannot be checked. Gemini is no longer an AI search provider.
+
+Configure `OPENAI_API_KEY` as a server-only Production and Preview environment variable in Vercel, then deploy this source version. The optional `OPENAI_MODEL` variable selects the model; the default is `gpt-5.6-luna`. `SUPABASE_SERVICE_ROLE_KEY`, already used by subscription webhooks, is required for the server-side entitlement check. Never use `NEXT_PUBLIC_` for secret keys or commit real keys to the repository.
+
 # vinext-starter
 
 A clean full-stack starter running on

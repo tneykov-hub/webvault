@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "How WebVault handles account, bookmark, device, and subscription information.",
 };
 
-const updated = "September 22, 2026";
+const updated = "September 30, 2026";
 const supportEmail = "tneykov@gmail.com";
 const deletionMailto = `mailto:${supportEmail}?subject=WebVault%20account%20deletion%20request`;
 
@@ -33,6 +33,7 @@ export default function PrivacyPage() {
           <ul>
             <li><strong>Account information:</strong> your email address, optional display name, and a service-generated account identifier used to sign in and secure your account.</li>
             <li><strong>Your WebVault content:</strong> saved website addresses, titles, descriptions, categories, favourites, display preferences, visit activity, and optional custom icons that you choose to add.</li>
+            <li><strong>AI search requests:</strong> if you have WebVault PRO and submit a ChatGPT search query, the query and selected language are sent to OpenAI to generate a web-grounded answer. AI search is optional and is not available on the FREE plan.</li>
             <li><strong>Subscription information:</strong> your subscription status and technical Stripe customer, subscription, and price identifiers. Card and bank details are processed by Stripe and are not stored by WebVault.</li>
             <li><strong>Technical information:</strong> a service-generated device identifier plus basic device and browser information used to provide sync, apply the selected plan, secure the service, and troubleshoot it.</li>
           </ul>
@@ -51,13 +52,16 @@ export default function PrivacyPage() {
             <li><strong>Supabase</strong> provides authentication, database, and file-storage services.</li>
             <li><strong>Stripe</strong> processes subscription payments and customer billing management for web subscriptions.</li>
             <li><strong>Vercel</strong> hosts the WebVault website and application services.</li>
+            <li><strong>OpenAI</strong> processes an AI search query only when a PRO user submits a ChatGPT search.</li>
           </ul>
           <p>When you request automatic metadata for a website you add, WebVault fetches that website to obtain its title and description. A favicon may be requested from Google&apos;s favicon service. The submitted website address is used only for that request.</p>
+          <p>AI search is separate from your saved-site search. When a PRO user presses the ChatGPT button or submits a search with Enter, WebVault sends the query and selected language to OpenAI&apos;s API. Typing to filter saved sites does not send an AI request. WebVault does not save AI prompts or answers in your account or search history. OpenAI handles submitted data under its API terms and retention rules. OpenAI&apos;s API data controls are described <a href="https://developers.openai.com/api/docs/guides/your-data" target="_blank" rel="noreferrer">here</a>.</p>
         </section>
 
         <section>
           <h2>4. Sharing and security</h2>
           <p>Your bookmark data is private to your account. We share information with the providers above only as needed to run WebVault, meet legal obligations, or protect the security of the service and its users.</p>
+          <p>For AI search, your query and generated answer may be retained by OpenAI for its stated processing and abuse-prevention periods. OpenAI API abuse-monitoring logs may include prompts and responses and are retained for up to 30 days by default. These retention periods are controlled by OpenAI and can change.</p>
           <p>We use access controls and encrypted connections to protect data in transit. No online service can guarantee absolute security, so please use a strong, unique password.</p>
         </section>
 

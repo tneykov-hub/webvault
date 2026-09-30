@@ -1,5 +1,22 @@
 # WebVault — HANDOFF
 
+## 30 September 2026 — ChatGPT search for WebVault PRO only
+
+- The current AI search implementation uses only OpenAI. Removed the Gemini request path, provider chooser, provider preference storage and Google grounding suggestions. A single **ChatGPT · PRO** button lives inside the dashboard search field; typing still filters saved bookmarks immediately, and PRO users submit an AI query with that button or Enter.
+- FREE users retain local bookmark filtering and do not see the AI button, answer panel or provider settings. The API authenticates the Supabase session and reads the authenticated user's server-managed `profiles.is_pro` flag on every request before calling OpenAI. It returns `403 pro_required` for FREE or missing profiles and fails closed with `503 subscription_check_failed` if the lookup fails. Body fields and editable auth metadata cannot grant access. Existing protected plan fields and Stripe entitlement updates remain the source of truth; no database migration or billing configuration was changed.
+- The PRO feature appears in both English and Bulgarian pricing comparisons. Privacy information now describes optional PRO-only ChatGPT queries sent to OpenAI, with no Gemini provider. The end-user unavailable message no longer contains deployment instructions.
+- Configure server-only `OPENAI_API_KEY` in the Vercel project; optional `OPENAI_MODEL` defaults to `gpt-5.6-luna`. The existing server-only `SUPABASE_SERVICE_ROLE_KEY` is required to check entitlement. The route keeps its eight-requests-per-minute in-memory rate limit and 700-token response cap; the rate limit is per server instance, not a global billing cap. Real OpenAI calls were not made during testing.
+- Verification passed: production `npm run vercel-build`, `npx tsc --noEmit --incremental false`, nine runtime API/access tests and the two pricing localization/rendering tests. Lint has zero errors and six existing warnings. The broader subscription test run still has the pre-existing privacy-content assertion failure expecting `Product usage events`; the normal `npm test` wrapper also depends on the missing `build/sites-vite-plugin`. Browser visual verification could not run because Chromium is absent and its download failed; the responsive source compiles but was not browser-inspected in this turn.
+- Source is saved on GitHub branch `codex/chatgpt-pro-only-20260930`, based on production `main` commit `3e71f1df177a0591ebd3a96626838a7225073a53`. These API-backed changes are not deployed to `webvault.site`; the owner has not yet confirmed the OpenAI environment key is saved. Deploy this branch's code after configuring the key and verify a real PRO search and a FREE rejection. No Android package, Windows package or store listing was changed.
+
+## 29 September 2026 — Move AI provider selection into search
+
+- Moved the ChatGPT/Gemini chooser into the main dashboard search field and removed the separate provider chooser from the AI results panel.
+- Added a search submit button beside the chooser. Clicking it or pressing Enter sends the current query to the selected provider through `/api/ai/search`; typing still filters saved bookmarks immediately.
+- The selected provider remains saved in browser storage and can also be changed in Profile & settings. The phone layout places the provider buttons and submit button on a second row inside the same search field.
+- Verification passed: `npm run vercel-build` and `npx tsc --noEmit`. `npm run lint` has no errors and reports the same six warnings in existing code.
+- These UI changes are local to the web source branch; no Android package or store listing was changed.
+
 ## 29 September 2026 — AI search shortcut and latest-source check
 
 - Confirmed the latest GitHub `main` is `68e02959a98a26c52b4d67976f05ca216a03f867` (`Add Google Play button to landing page`, 26 September 2026, 06:15 UTC). The local source tree matched that commit before this change; the work is on branch `codex/ai-search-20260929`.
