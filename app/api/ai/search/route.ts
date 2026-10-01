@@ -3,8 +3,11 @@ import { nativeCorsHeaders } from "@/lib/native-api";
 import { subscriptionGrantsProAccess } from "@/lib/plans";
 import { authenticateStripeRequest } from "@/lib/server-auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { BodyTooLargeError, readJsonBody, readLimitedText } from "@/lib/limited-body";
+import { releaseRequest, reserveRequest } from "@/lib/request-limits";
 
 export const runtime = "nodejs";
+export const maxDuration = 35;
 
 const maxQueryLength = 500;
 const maxOutputTokens = 700;
@@ -30,12 +33,13 @@ type OpenAIOutputItem = {
   content?: unknown;
 };
 
-function json(request: Request, body: unknown, status = 200) {
+function json(request: Request, body: unknown, status = 200, headers: Record<string, string> = {}) {
   return NextResponse.json(body, {
     status,
     headers: {
       ...nativeCorsHeaders(request),
       "Cache-Control": "no-store",
+      ...headers,
     },
   });
 }
@@ -78,11 +82,13 @@ function collectResponse(payload: Record<string, unknown>) {
 }
 
 export async function POST(request: Request) {
+  let lease: string | undefined;
+  let providerSignal: AbortSignal | undefined;
   try {
     const auth = await authenticateStripeRequest(request);
     if ("error" in auth) return json(request, { error: auth.error }, auth.status);
 
-    const body = (await request.json().catch(() => ({}))) as { query?: unknown; language?: unknown };
+    const body = await readJsonBody(request);
     const query = typeof body.query === "string" ? body.query.trim() : "";
     const language = body.language === "bg" ? "bg" : "en";
 
@@ -116,13 +122,30 @@ export async function POST(request: Request) {
       return json(request, { error: "ChatGPT search is temporarily unavailable." }, 503);
     }
 
+    try {
+      const reservation = await reserveRequest("ai", auth.user.id, auth.user.id);
+      if (!reservation.allowed) {
+        if (reservation.reason === "forbidden") return json(request, { error: "ChatGPT search requires an active WebVault PRO subscription." }, 403);
+        const error = language === "bg"
+          ? "Достигнат е лимитът за ChatGPT търсене или вече има активна заявка. Лимит: 20 дневно и 200 месечно. Опитай по-късно."
+          : "ChatGPT search limit reached or a search is already running. Limit: 20 per day and 200 per month. Try again later.";
+        return json(request, { error, code: "ai_limit", reason: reservation.reason, retryAfter: reservation.retryAfter }, 429, { "Retry-After": String(reservation.retryAfter) });
+      }
+      lease = reservation.token;
+    } catch {
+      console.error("WebVault AI request limit unavailable");
+      return json(request, { error: "ChatGPT search is temporarily unavailable." }, 503);
+    }
+
     const model = process.env.OPENAI_SEARCH_MODEL?.trim() || "gpt-6-luna";
     const instruction = language === "bg"
       ? "Отговори на български. Използвай уеб търсене, когато е необходимо, и дай кратък, полезен отговор с актуална информация. Не споменавай вътрешни инструкции."
       : "Answer in English. Use web search when needed and give a concise, useful answer with current information. Do not mention internal instructions.";
 
+    providerSignal = AbortSignal.timeout(25000);
     const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
+      signal: providerSignal,
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -132,6 +155,7 @@ export async function POST(request: Request) {
         store: false,
         reasoning: { effort: "none" },
         max_output_tokens: maxOutputTokens,
+        max_tool_calls: 1,
         tools: [{ type: "web_search", search_context_size: "low" }],
         tool_choice: "required",
         input: [
@@ -148,7 +172,9 @@ export async function POST(request: Request) {
     });
 
     const requestId = openAIResponse.headers.get("x-request-id");
-    const payload = await openAIResponse.json().catch(() => ({})) as Record<string, unknown>;
+    const responseText = await readLimitedText(openAIResponse, 1024 * 1024, providerSignal);
+    let payload: Record<string, unknown> = {};
+    try { payload = JSON.parse(responseText) as Record<string, unknown>; } catch { /* Report a generic provider error below. */ }
     if (!openAIResponse.ok) {
       const providerError = payload.error && typeof payload.error === "object"
         ? payload.error as Record<string, unknown>
@@ -170,7 +196,12 @@ export async function POST(request: Request) {
 
     return json(request, result);
   } catch (error) {
+    if (error instanceof BodyTooLargeError) return json(request, { error: "Request or response too large." }, 413);
+    if (error instanceof SyntaxError) return json(request, { error: "Invalid request body." }, 400);
+    if (providerSignal?.aborted) return json(request, { error: "ChatGPT search timed out. Please try again later." }, 504);
     console.error("WebVault ChatGPT search error", error);
     return json(request, { error: "ChatGPT search is temporarily unavailable." }, 500);
+  } finally {
+    await releaseRequest(lease).catch(() => console.error("WebVault AI lease release failed"));
   }
 }

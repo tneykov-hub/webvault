@@ -756,6 +756,10 @@ function Dashboard() {
         body: JSON.stringify({ query: searchTerm, language }),
       });
       const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+      if (response.status === 429 && payload.code === "ai_limit" && typeof payload.error === "string") {
+        setAiSearchError(payload.error);
+        return;
+      }
       if (response.status === 403) {
         openUpgradeDialog(t("ChatGPT търсенето е достъпно само с PRO абонамент."));
         return;

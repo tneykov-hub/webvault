@@ -13,7 +13,7 @@ type ServerDatabase = {
   public: {
     Tables: Record<string, LooseTable>;
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: Record<string, { Args: Record<string, unknown>; Returns: unknown }>;
     Enums: Record<string, string>;
     CompositeTypes: Record<string, never>;
   };

@@ -6,21 +6,34 @@ import ts from "typescript";
 
 const routeSource = await readFile(new URL("../app/api/ai/search/route.ts", import.meta.url), "utf8");
 const plansSource = await readFile(new URL("../lib/plans.ts", import.meta.url), "utf8");
+const bodySource = await readFile(new URL("../lib/limited-body.ts", import.meta.url), "utf8");
 const compile = (source) => ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 const routeCode = compile(routeSource);
 const plans = { exports: {} };
 vm.runInNewContext(compile(plansSource), { exports: plans.exports });
+const bodies = { exports: {} };
+vm.runInNewContext(compile(bodySource), { exports: bodies.exports, AbortSignal, TextDecoder, SyntaxError, Error });
 
-function createRoute({ profile, authError, databaseError, apiKey = "test-provider-key", providerFailure }) {
-  const calls = { provider: 0, database: 0, errors: [] };
+function createRoute({ profile, authError, databaseError, apiKey = "test-provider-key", providerFailure, reservation, quotaError, providerTimeout }) {
+  const calls = { provider: 0, database: 0, reserved: 0, released: 0, errors: [] };
   const route = { exports: {} };
   const userId = "verified-auth-user";
   const modules = {
     "next/server": { NextResponse: Response },
     "@/lib/native-api": { nativeCorsHeaders: () => ({}) },
     "@/lib/plans": plans.exports,
+    "@/lib/limited-body": bodies.exports,
+    "@/lib/request-limits": {
+      reserveRequest: async (scope, subject, id) => {
+        assert.equal(scope, "ai"); assert.equal(subject, userId); assert.equal(id, userId);
+        calls.reserved += 1;
+        if (quotaError) throw new Error("Quota database unavailable");
+        return reservation || { allowed: true, token: "test-reservation" };
+      },
+      releaseRequest: async (token) => { if (token) calls.released += 1; },
+    },
     "@/lib/server-auth": {
       authenticateStripeRequest: async () => authError || { user: { id: userId } },
     },
@@ -54,9 +67,17 @@ function createRoute({ profile, authError, databaseError, apiKey = "test-provide
     process: { env: { OPENAI_API_KEY: apiKey } },
     console: { error: (...args) => calls.errors.push(args) },
     Map,
-    fetch: async (url) => {
+    AbortSignal: providerTimeout ? { timeout: () => AbortSignal.timeout(5) } : AbortSignal,
+    SyntaxError,
+    fetch: async (url, options) => {
       assert.equal(url, "https://api.openai.com/v1/responses");
       calls.provider += 1;
+      assert.equal(JSON.parse(options.body).model, "gpt-6-luna");
+      assert.equal(JSON.parse(options.body).max_tool_calls, 1);
+      assert.ok(options.signal);
+      if (providerTimeout) return new Promise((_, reject) => {
+        options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+      });
       if (providerFailure) {
         return Response.json({ error: providerFailure }, { status: 429 });
       }
@@ -108,6 +129,42 @@ test("ignores a client-supplied founder entitlement", async () => {
   );
   assert.equal(response.status, 403);
   assert.equal(calls.provider, 0);
+});
+
+for (const reason of ["daily", "monthly", "minute", "concurrent"]) {
+  test(`blocks a ${reason} limit before any provider request and supplies Retry-After`, async () => {
+    const { response, calls } = await search({
+      profile: { is_pro: true, stripe_subscription_status: "active" },
+      reservation: { allowed: false, reason, retryAfter: 60 },
+    });
+    assert.equal(response.status, 429);
+    assert.equal(response.headers.get("retry-after"), "60");
+    assert.equal((await response.json()).code, "ai_limit");
+    assert.equal(calls.provider, 0); assert.equal(calls.released, 0);
+  });
+}
+
+test("fails closed if durable quota storage is unavailable", async () => {
+  const { response, calls } = await search({ profile: { is_pro: true, stripe_subscription_status: "active" }, quotaError: true });
+  assert.equal(response.status, 503); assert.equal(calls.provider, 0);
+});
+
+test("rechecks entitlement at reservation time", async () => {
+  const { response, calls } = await search({ profile: { is_pro: true, stripe_subscription_status: "active" }, reservation: { allowed: false, reason: "forbidden" } });
+  assert.equal(response.status, 403); assert.equal(calls.provider, 0);
+});
+
+test("aborts a slow provider and releases its concurrency slot", async () => {
+  const keeper = setTimeout(() => {}, 100);
+  try {
+    const { response, calls } = await search({ profile: { is_pro: true, stripe_subscription_status: "active" }, providerTimeout: true });
+    assert.equal(response.status, 504); assert.equal(calls.reserved, 1); assert.equal(calls.released, 1);
+  } finally { clearTimeout(keeper); }
+});
+
+test("rejects oversized input without consuming a provider request", async () => {
+  const { response, calls } = await search({ profile: { is_pro: true, stripe_subscription_status: "active" } }, { ignored: "x".repeat(9000) });
+  assert.equal(response.status, 413); assert.equal(calls.reserved, 0); assert.equal(calls.provider, 0);
 });
 
 test("rejects an unauthenticated request before reading the profile or calling the provider", async () => {

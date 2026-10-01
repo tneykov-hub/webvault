@@ -1,53 +1,21 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { subscriptionGrantsProAccess } from "@/lib/plans";
 import { getStripe } from "@/lib/stripe";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { resolveStripeUser, stripeId, syncStripeSubscription } from "@/lib/stripe-subscription-sync";
 import { notifyOwner } from "@/lib/owner-notifications";
 
 export const runtime = "nodejs";
-
-function stripeId(value: unknown) {
-  if (typeof value === "string") return value;
-  if (value && typeof value === "object" && "id" in value && typeof value.id === "string") return value.id;
-  return null;
-}
 
 function metadataUserId(metadata: Stripe.Metadata | null | undefined) {
   const userId = metadata?.supabase_user_id;
   return typeof userId === "string" && userId ? userId : null;
 }
 
-async function findProfileUserId(customerId: string | null, subscriptionId: string | null) {
-  const admin = getSupabaseAdmin();
-  if (subscriptionId) {
-    const { data, error } = await admin.from("profiles").select("id").eq("stripe_subscription_id", subscriptionId).maybeSingle();
-    if (error) throw error;
-    if (typeof data?.id === "string") return data.id;
-  }
-  if (customerId) {
-    const { data, error } = await admin.from("profiles").select("id").eq("stripe_customer_id", customerId).maybeSingle();
-    if (error) throw error;
-    if (typeof data?.id === "string") return data.id;
-  }
-  return null;
-}
-
-async function syncSubscription(subscription: Stripe.Subscription, fallbackUserId: string | null = null) {
-  const customerId = stripeId(subscription.customer);
-  const userId = metadataUserId(subscription.metadata) ?? fallbackUserId ?? await findProfileUserId(customerId, subscription.id);
-  if (!userId) throw new Error("Unable to resolve the WebVault user for this Stripe subscription.");
-
-  const priceId = subscription.items.data[0]?.price.id ?? null;
-  const { error } = await getSupabaseAdmin().from("profiles").update({
-    is_pro: subscriptionGrantsProAccess(subscription.status),
-    stripe_customer_id: customerId,
-    stripe_subscription_id: subscription.id,
-    stripe_subscription_status: subscription.status,
-    stripe_price_id: priceId,
-    subscription_updated_at: new Date().toISOString(),
-  }).eq("id", userId);
-  if (error) throw error;
+async function reconcile(eventId: string, customerId: string | null, subscriptionId: string | null, fallbackUserId: string | null) {
+  if (!customerId || !subscriptionId) return null;
+  const userId = await resolveStripeUser(customerId, subscriptionId, fallbackUserId);
+  if (!userId) throw new Error("Unable to resolve subscription profile");
+  return syncStripeSubscription(eventId, userId, customerId, subscriptionId);
 }
 
 function money(amount: number | null | undefined, currency: string | null | undefined) {
@@ -72,31 +40,22 @@ export async function POST(request: Request) {
   let event: Stripe.Event;
   try {
     event = getStripe().webhooks.constructEvent(await request.text(), signature, webhookSecret);
-  } catch (error) {
-    console.error("Invalid WebVault Stripe webhook", error);
+  } catch {
+    console.error("Invalid WebVault Stripe webhook signature");
     return NextResponse.json({ error: "Invalid Stripe webhook signature." }, { status: 400 });
   }
 
   try {
     switch (event.type) {
-      case "checkout.session.completed": {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded": {
         const checkout = event.data.object as Stripe.Checkout.Session;
         const customerId = stripeId(checkout.customer);
         const subscriptionId = stripeId(checkout.subscription);
-        const userId = checkout.client_reference_id ?? metadataUserId(checkout.metadata) ?? await findProfileUserId(customerId, subscriptionId);
-        if (!userId) throw new Error("Checkout completed without a linked WebVault user.");
-
-        if (subscriptionId) {
-          const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
-          await syncSubscription(subscription, userId);
-        } else {
-          const { error } = await getSupabaseAdmin().from("profiles").update({
-            is_pro: true,
-            stripe_customer_id: customerId,
-            subscription_updated_at: new Date().toISOString(),
-          }).eq("id", userId);
-          if (error) throw error;
-        }
+        if (checkout.mode !== "subscription" || !subscriptionId
+          || !["paid", "no_payment_required"].includes(checkout.payment_status)) break;
+        const current = await reconcile(event.id, customerId, subscriptionId, checkout.client_reference_id ?? metadataUserId(checkout.metadata));
+        if (!current) break;
 
         await notifyOwner({
           subject: "New WebVault PRO subscription",
@@ -111,10 +70,13 @@ export async function POST(request: Request) {
         });
         break;
       }
-      case "customer.subscription.updated": {
-        const subscription = event.data.object as Stripe.Subscription;
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted": {
+        const snapshot = event.data.object as Stripe.Subscription;
+        const subscription = await reconcile(event.id, stripeId(snapshot.customer), snapshot.id, metadataUserId(snapshot.metadata));
+        if (!subscription) break;
         const customerEmail = await subscriptionCustomerEmail(subscription);
-        await syncSubscription(subscription);
         await notifyOwner({
           subject: `WebVault PRO subscription updated: ${subscription.status}`,
           text: [
@@ -127,24 +89,14 @@ export async function POST(request: Request) {
         });
         break;
       }
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
-        const customerEmail = await subscriptionCustomerEmail(subscription);
-        await syncSubscription(subscription);
-        await notifyOwner({
-          subject: "WebVault PRO subscription canceled",
-          text: [
-            "A WebVault PRO subscription was canceled.",
-            `Customer: ${customerEmail}`,
-            `Subscription: ${subscription.id}`,
-          ].join("\n"),
-          idempotencyKey: `webvault-subscription-canceled-${event.id}`,
-        });
-        break;
-      }
-      case "invoice.paid": {
+      case "invoice.paid":
+      case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
-        if (invoice.billing_reason !== "subscription_create") {
+        const subscriptionId = stripeId(invoice.parent?.subscription_details?.subscription);
+        if (!subscriptionId) break;
+        const current = await reconcile(event.id, stripeId(invoice.customer), subscriptionId, null);
+        if (!current) break;
+        if (event.type === "invoice.paid" && invoice.billing_reason !== "subscription_create") {
           await notifyOwner({
             subject: "WebVault PRO subscription payment received",
             text: [
@@ -163,8 +115,8 @@ export async function POST(request: Request) {
         break;
     }
     return NextResponse.json({ received: true });
-  } catch (error) {
-    console.error("WebVault Stripe webhook processing error", error);
+  } catch {
+    console.error("WebVault Stripe webhook processing error");
     return NextResponse.json({ error: "Webhook processing failed." }, { status: 500 });
   }
 }
