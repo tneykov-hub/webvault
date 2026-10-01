@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { PricingClient } from "@/components/pricing-client";
+import { getConfiguredStripePrices } from "@/lib/stripe";
+
+// Read the same runtime configuration that the Checkout API validates.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "WebVault PRO | Plans and pricing",
@@ -21,5 +25,5 @@ export const metadata: Metadata = {
 };
 
 export default function PricingPage() {
-  return <PricingClient />;
+  return <PricingClient {...getConfiguredStripePrices()} />;
 }

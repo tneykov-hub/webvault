@@ -9,10 +9,14 @@ export function getStripe() {
   return stripeClient;
 }
 
+export function getConfiguredStripePrices() {
+  return {
+    monthlyPriceId: process.env.STRIPE_PRICE_MONTHLY ?? "",
+    yearlyPriceId: process.env.STRIPE_PRICE_YEARLY ?? "",
+  };
+}
+
 export function isConfiguredStripePrice(priceId: string) {
-  const allowedPrices = [
-    process.env.STRIPE_PRICE_MONTHLY,
-    process.env.STRIPE_PRICE_YEARLY,
-  ].filter((price): price is string => Boolean(price));
-  return allowedPrices.includes(priceId);
+  const { monthlyPriceId, yearlyPriceId } = getConfiguredStripePrices();
+  return Boolean(priceId) && [monthlyPriceId, yearlyPriceId].includes(priceId);
 }

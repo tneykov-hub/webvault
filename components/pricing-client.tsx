@@ -47,7 +47,9 @@ function profileFromRow(row: Record<string, unknown> | null): SubscriptionProfil
   };
 }
 
-export function PricingClient() {
+type PricingClientProps = { monthlyPriceId?: string; yearlyPriceId?: string };
+
+export function PricingClient({ monthlyPriceId = "", yearlyPriceId = "" }: PricingClientProps = {}) {
   const nativeApp = isNativeApp();
   const language = useSyncExternalStore(subscribeToPricingLanguage, getStoredPricingLanguage, getServerPricingLanguage);
   const copy = getPricingCopy(language);
@@ -58,10 +60,6 @@ export function PricingClient() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const checkoutState = useMemo(() => typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("checkout"), []);
-  // Next.js only inlines direct NEXT_PUBLIC_* references in browser bundles.
-  // The guard also keeps the separately built Capacitor/Vite client compatible.
-  const monthlyPriceId = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_STRIPE_PRICE_MONTHLY ?? "" : "";
-  const yearlyPriceId = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_STRIPE_PRICE_YEARLY ?? "" : "";
   const priceOptions: PriceOption[] = [
     { id: monthlyPriceId, period: copy.monthlyPlan, price: language === "en" ? "€3.99" : "3.99€", note: copy.perMonth },
     { id: yearlyPriceId, period: copy.yearlyPlan, price: language === "en" ? "€29" : "29€", note: copy.perYear, highlight: true },

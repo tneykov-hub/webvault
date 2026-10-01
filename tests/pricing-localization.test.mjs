@@ -43,3 +43,38 @@ test("pricing page server markup defaults to English copy", async () => {
   assert.match(html, /Sign in to activate/);
   assert.doesNotMatch(html, /Повече място|Месечен план|Влез, за да активираш/);
 });
+
+test("pricing receives the same runtime server IDs that Checkout permits without public env duplicates", async () => {
+  const keys = ["STRIPE_PRICE_MONTHLY", "STRIPE_PRICE_YEARLY", "NEXT_PUBLIC_STRIPE_PRICE_MONTHLY", "NEXT_PUBLIC_STRIPE_PRICE_YEARLY"];
+  const previous = new Map(keys.map((key) => [key, process.env[key]]));
+  try {
+    process.env.STRIPE_PRICE_MONTHLY = "price_test_monthly";
+    process.env.STRIPE_PRICE_YEARLY = "price_test_yearly";
+    delete process.env.NEXT_PUBLIC_STRIPE_PRICE_MONTHLY;
+    delete process.env.NEXT_PUBLIC_STRIPE_PRICE_YEARLY;
+    const { default: PricingPage, dynamic } = await vite.ssrLoadModule("/app/pricing/page.tsx");
+    const { isConfiguredStripePrice } = await vite.ssrLoadModule("/lib/stripe.ts");
+    const page = PricingPage();
+    assert.equal(dynamic, "force-dynamic");
+    assert.deepEqual(page.props, { monthlyPriceId: "price_test_monthly", yearlyPriceId: "price_test_yearly" });
+    assert.equal(isConfiguredStripePrice(page.props.monthlyPriceId), true);
+    assert.equal(isConfiguredStripePrice(page.props.yearlyPriceId), true);
+    assert.equal(isConfiguredStripePrice("price_attacker_supplied"), false);
+  } finally {
+    for (const [key, value] of previous) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+  }
+});
+
+test("unconfigured runtime pricing cannot allow an empty Checkout price", async () => {
+  const keys = ["STRIPE_PRICE_MONTHLY", "STRIPE_PRICE_YEARLY"];
+  const previous = new Map(keys.map((key) => [key, process.env[key]]));
+  try {
+    for (const key of keys) delete process.env[key];
+    const { default: PricingPage } = await vite.ssrLoadModule("/app/pricing/page.tsx");
+    const { isConfiguredStripePrice } = await vite.ssrLoadModule("/lib/stripe.ts");
+    assert.deepEqual(PricingPage().props, { monthlyPriceId: "", yearlyPriceId: "" });
+    assert.equal(isConfiguredStripePrice(""), false);
+  } finally {
+    for (const [key, value] of previous) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+  }
+});
