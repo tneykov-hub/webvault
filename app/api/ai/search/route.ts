@@ -116,7 +116,7 @@ export async function POST(request: Request) {
       return json(request, { error: "ChatGPT search is temporarily unavailable." }, 503);
     }
 
-    const model = process.env.OPENAI_SEARCH_MODEL?.trim() || "gpt-5.6-luna";
+    const model = process.env.OPENAI_SEARCH_MODEL?.trim() || "gpt-6-luna";
     const instruction = language === "bg"
       ? "Отговори на български. Използвай уеб търсене, когато е необходимо, и дай кратък, полезен отговор с актуална информация. Не споменавай вътрешни инструкции."
       : "Answer in English. Use web search when needed and give a concise, useful answer with current information. Do not mention internal instructions.";

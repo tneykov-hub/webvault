@@ -1,5 +1,13 @@
 # WebVault — HANDOFF
 
+## 1 October 2026 — GPT-6 Luna search model
+
+- The owner explicitly requested switching WebVault's AI search to GPT-6 Luna. The route's default and `.env.example` now use `gpt-6-luna`; `vercel.json` declares this non-secret server environment value for Vercel functions. `OPENAI_API_KEY` remains exclusively in the server environment.
+- Official OpenAI documentation confirms GPT-6 Luna supports the existing Responses API, built-in web search and `reasoning.effort: "none"`: https://developers.openai.com/api/docs/models/gpt-6-luna . The existing prompts, required web search, low search context, 500-character query limit, 700-output-token cap, answer/citation contract and PRO/founder access rules are preserved.
+- This is a server-side model change. Android 1.0.2 calls `https://webvault.site/api/ai/search` and will use the deployed server model without a new AAB. No native package or store release is part of this change.
+- The earlier generic AI error was diagnosed in production logs on 30 September at 19:33:58 UTC: OpenAI HTTP 429, `code: credit_balance_exhausted`, `type: insufficient_quota`. Switching models does not replenish API credits. No API balance, key or billing configuration is changed here.
+- Local verification passed: **19/19** existing route/access-control and provider-error privacy scenarios, targeted ESLint, source whitespace checks and `npm run vercel-build` including TypeScript. The route's executable source differs only in the default model identifier; `.env.example` and `vercel.json` select the same target. These tests mock OpenAI; a successful real signed-in GPT-6 Luna answer is not yet verified.
+
 ## 30 September 2026 — gold ChatGPT PRO badge and provider error diagnosis
 
 - The owner requested that the crown and PRO text beside ChatGPT use the same gold styling as the header PRO button. `app/globals.css` now gives `.pro-badge` and `.ai-pro-badge` a shared gold foreground, translucent gold background and gold border; the former purple light/dark AI-badge overrides were removed. The existing compact pill layout remains intact.
