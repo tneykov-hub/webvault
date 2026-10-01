@@ -44,19 +44,18 @@ test("pricing page server markup defaults to English copy", async () => {
   assert.doesNotMatch(html, /Повече място|Месечен план|Влез, за да активираш/);
 });
 
-test("pricing receives the same runtime server IDs that Checkout permits without public env duplicates", async () => {
+test("pricing receives the verified server plan IDs even with duplicated legacy env values", async () => {
   const keys = ["STRIPE_PRICE_MONTHLY", "STRIPE_PRICE_YEARLY", "NEXT_PUBLIC_STRIPE_PRICE_MONTHLY", "NEXT_PUBLIC_STRIPE_PRICE_YEARLY"];
   const previous = new Map(keys.map((key) => [key, process.env[key]]));
   try {
-    process.env.STRIPE_PRICE_MONTHLY = "price_test_monthly";
-    process.env.STRIPE_PRICE_YEARLY = "price_test_yearly";
+    process.env.STRIPE_PRICE_MONTHLY = "price_bad_legacy_monthly";
+    process.env.STRIPE_PRICE_YEARLY = "price_bad_legacy_monthly";
     delete process.env.NEXT_PUBLIC_STRIPE_PRICE_MONTHLY;
     delete process.env.NEXT_PUBLIC_STRIPE_PRICE_YEARLY;
-    const { default: PricingPage, dynamic } = await vite.ssrLoadModule("/app/pricing/page.tsx");
+    const { default: PricingPage } = await vite.ssrLoadModule("/app/pricing/page.tsx");
     const { isConfiguredStripePrice } = await vite.ssrLoadModule("/lib/stripe.ts");
     const page = PricingPage();
-    assert.equal(dynamic, "force-dynamic");
-    assert.deepEqual(page.props, { monthlyPriceId: "price_test_monthly", yearlyPriceId: "price_test_yearly" });
+    assert.deepEqual(page.props, { monthlyPriceId: "price_1UDVBqHYeWxWMio9LdnWNeq9", yearlyPriceId: "price_1UDVBzHYeWxWMio93h07quSg" });
     assert.equal(isConfiguredStripePrice(page.props.monthlyPriceId), true);
     assert.equal(isConfiguredStripePrice(page.props.yearlyPriceId), true);
     assert.equal(isConfiguredStripePrice("price_attacker_supplied"), false);
@@ -65,14 +64,16 @@ test("pricing receives the same runtime server IDs that Checkout permits without
   }
 });
 
-test("unconfigured runtime pricing cannot allow an empty Checkout price", async () => {
+test("missing legacy environment values cannot blank pricing or allow an empty Checkout price", async () => {
   const keys = ["STRIPE_PRICE_MONTHLY", "STRIPE_PRICE_YEARLY"];
   const previous = new Map(keys.map((key) => [key, process.env[key]]));
   try {
     for (const key of keys) delete process.env[key];
     const { default: PricingPage } = await vite.ssrLoadModule("/app/pricing/page.tsx");
     const { isConfiguredStripePrice } = await vite.ssrLoadModule("/lib/stripe.ts");
-    assert.deepEqual(PricingPage().props, { monthlyPriceId: "", yearlyPriceId: "" });
+    const props = PricingPage().props;
+    assert.ok(props.monthlyPriceId); assert.ok(props.yearlyPriceId);
+    assert.notEqual(props.monthlyPriceId, props.yearlyPriceId);
     assert.equal(isConfiguredStripePrice(""), false);
   } finally {
     for (const [key, value] of previous) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }

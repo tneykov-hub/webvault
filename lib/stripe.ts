@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { stripePriceIds } from "@/lib/stripe-prices";
 
 let stripeClient: Stripe | null = null;
 
@@ -10,13 +11,10 @@ export function getStripe() {
 }
 
 export function getConfiguredStripePrices() {
-  return {
-    monthlyPriceId: process.env.STRIPE_PRICE_MONTHLY ?? "",
-    yearlyPriceId: process.env.STRIPE_PRICE_YEARLY ?? "",
-  };
+  return { ...stripePriceIds };
 }
 
 export function isConfiguredStripePrice(priceId: string) {
   const { monthlyPriceId, yearlyPriceId } = getConfiguredStripePrices();
-  return Boolean(priceId) && [monthlyPriceId, yearlyPriceId].includes(priceId);
+  return priceId === monthlyPriceId || priceId === yearlyPriceId;
 }
