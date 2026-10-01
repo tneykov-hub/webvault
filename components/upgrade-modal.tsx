@@ -4,6 +4,7 @@ import { Check, Crown } from "lucide-react";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FREE_CATEGORY_LIMIT, FREE_SITE_LIMIT } from "@/lib/plans";
+import { getPricingCopy } from "@/lib/pricing-copy";
 
 export function UpgradeModal({ open, onOpenChange, reason, language }: { open: boolean; onOpenChange: (open: boolean) => void; reason?: string; language: "en" | "bg" }) {
   const copy = language === "bg" ? {
@@ -13,7 +14,7 @@ export function UpgradeModal({ open, onOpenChange, reason, language }: { open: b
     annual: "или 29 € / година",
     sites: "Неограничени сайтове и категории",
     sync: "Sync на всички устройства и неограничен import",
-    extras: "ChatGPT търсене, персонални иконки, PWA и приоритетна поддръжка",
+    extras: "Персонални иконки, PWA и приоритетна поддръжка",
     cancel: "Не сега",
     upgrade: "Стани PRO",
     free: `FREE включва до ${FREE_SITE_LIMIT} сайта, ${FREE_CATEGORY_LIMIT} категории и 1 устройство.`,
@@ -24,7 +25,7 @@ export function UpgradeModal({ open, onOpenChange, reason, language }: { open: b
     annual: "or €29 / year",
     sites: "Unlimited sites and categories",
     sync: "Sync on every device and unlimited import",
-    extras: "ChatGPT search, custom icons, PWA and priority support",
+    extras: "Custom icons, PWA and priority support",
     cancel: "Not now",
     upgrade: "Go PRO",
     free: `FREE includes up to ${FREE_SITE_LIMIT} sites, ${FREE_CATEGORY_LIMIT} categories and 1 device.`,
@@ -45,6 +46,7 @@ export function UpgradeModal({ open, onOpenChange, reason, language }: { open: b
           <ul>
             <li><Check size={16} /> {copy.sites}</li>
             <li><Check size={16} /> {copy.sync}</li>
+            <li><Check size={16} /> {getPricingCopy(language).chatgptSearch}</li>
             <li><Check size={16} /> {copy.extras}</li>
           </ul>
         </div>
