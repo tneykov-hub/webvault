@@ -17,6 +17,33 @@
 body {
   margin: 0;
 }
+/* Capacitor supplies zero insets when Android already fits the WebView inside
+   the system bars, and real insets when it draws edge to edge. Use its CSS
+   values before env() so older WebViews also keep controls below the cutout. */
+html[data-webvault-platform="android"] {
+  --webvault-safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --webvault-safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --webvault-safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --webvault-safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  background: #f5f7fb;
+}
+html[data-webvault-platform="android"] body {
+  padding: var(--webvault-safe-top) var(--webvault-safe-right)
+    var(--webvault-safe-bottom) var(--webvault-safe-left);
+}
+html[data-webvault-platform="android"] .app {
+  min-height: calc(100svh - var(--webvault-safe-top) - var(--webvault-safe-bottom));
+  overflow: clip;
+}
+html[data-webvault-platform="android"] .topbar {
+  top: var(--webvault-safe-top);
+}
+html[data-webvault-platform="android"] [data-slot="dialog-content"] {
+  top: calc((100dvh + var(--webvault-safe-top) - var(--webvault-safe-bottom)) / 2);
+  left: calc((100vw + var(--webvault-safe-left) - var(--webvault-safe-right)) / 2);
+  max-width: calc(100vw - var(--webvault-safe-left) - var(--webvault-safe-right) - 32px);
+  max-height: calc(100dvh - var(--webvault-safe-top) - var(--webvault-safe-bottom) - 28px);
+}
 .privacy-page {
   min-height: 100vh;
   padding: 42px 20px 72px;
