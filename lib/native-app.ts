@@ -1,6 +1,6 @@
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, SystemBars, SystemBarsStyle } from "@capacitor/core";
 import { Keyboard, KeyboardResize } from "@capacitor/keyboard";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { StatusBar, Style } from "@capacitor/status-bar";
@@ -85,9 +85,17 @@ export async function initialiseNativeApp() {
   const launchUrl = await App.getLaunchUrl();
   if (launchUrl?.url) void completeNativeAuth(launchUrl.url).catch(() => undefined);
 
+  // Android's edge-to-edge layout is handled by SystemBars and the native
+  // safe-area CSS. Legacy overlay controls no longer apply on Android 16.
+  const systemBarSetup = Capacitor.getPlatform() === "android"
+    ? [SystemBars.setStyle({ style: SystemBarsStyle.Light })]
+    : [
+        StatusBar.setOverlaysWebView({ overlay: false }),
+        StatusBar.setStyle({ style: Style.Dark }),
+      ];
+
   await Promise.allSettled([
-    StatusBar.setOverlaysWebView({ overlay: false }),
-    StatusBar.setStyle({ style: Style.Dark }),
+    ...systemBarSetup,
     Keyboard.setResizeMode({ mode: KeyboardResize.Native }),
     SplashScreen.hide(),
   ]);
