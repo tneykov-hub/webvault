@@ -1,0 +1,51 @@
+{
+  "verifiedAt": "2026-10-05T09:33:05.748Z",
+  "deployment": "dpl_5NcsMJmjVeKVsKePcAuSHaZazF1M",
+  "state": "READY",
+  "target": "preview",
+  "sourceCommit": "15a5179cac1a09de6facb4c480df57193811562e",
+  "verifiedSourceTree": "6e14e93b332a1e62e0b6afeedff795167d0ab941",
+  "sourceExactlyMatchesTestedLocalSnapshot": true,
+  "canonicalUrl": "https://my-sites-bookmark-manager-zfianwdyj-tneykov-8790s-projects.vercel.app",
+  "pullRequest": "https://github.com/tneykov-hub/webvault/pull/6",
+  "draft": true,
+  "http": [
+    {
+      "url": "https://my-sites-bookmark-manager-zfianwdyj-tneykov-8790s-projects.vercel.app/",
+      "status": 200,
+      "success": true,
+      "htmlCharacters": 11748
+    },
+    {
+      "url": "https://my-sites-bookmark-manager-zfianwdyj-tneykov-8790s-projects.vercel.app/privacy",
+      "status": 200,
+      "success": true,
+      "htmlCharacters": 24226
+    },
+    {
+      "url": "https://my-sites-bookmark-manager-zfianwdyj-tneykov-8790s-projects.vercel.app/delete-account",
+      "status": 200,
+      "success": true,
+      "htmlCharacters": 18040
+    },
+    {
+      "url": "https://my-sites-bookmark-manager-zfianwdyj-tneykov-8790s-projects.vercel.app/pricing",
+      "status": 200,
+      "devicesRowVerified": true
+    }
+  ],
+  "browser": {
+    "publicLandingEnglish": true,
+    "publicLandingBulgarian": true,
+    "pricingBulgarian": true,
+    "devicesRow": "3 потвърдени · 1 активно",
+    "appErrors": [],
+    "extensionErrorsExcluded": true,
+    "screenshot": "preview-pricing-bg.jpg",
+    "realSignedInFlow": false
+  },
+  "productionChanged": false,
+  "strictEnforcement": false,
+  "realEmailDelivery": false,
+  "physicalPhone": false
+}

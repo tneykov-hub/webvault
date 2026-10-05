@@ -68,10 +68,16 @@
     "Realtime lacks the device header; focus/30-second data polling is the fallback"
   ],
   "publishing": {
-    "githubPush": "blocked-by-automatic-approval-review",
-    "reason": "Explicit authorization for external repository publication was not identified",
+    "githubPush": "published-via-connected-GitHub-account",
+    "ownerExplicitApproval": true,
     "repository": "tneykov-hub/webvault",
-    "pullRequestCreated": false,
-    "onlinePreviewCreated": false
+    "pullRequestCreated": true,
+    "pullRequest": "https://github.com/tneykov-hub/webvault/pull/6",
+    "draft": true,
+    "onlinePreviewCreated": true,
+    "previewVerified": true,
+    "previewReport": "preview-verification.json",
+    "firstPublishedCommit": "15a5179cac1a09de6facb4c480df57193811562e",
+    "verifiedSourceTree": "6e14e93b332a1e62e0b6afeedff795167d0ab941"
   }
 }
