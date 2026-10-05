@@ -1,0 +1,171 @@
+{
+  "verified_at": "2026-10-05T19:44:17.242316+00:00",
+  "base_url": "https://webvault.site",
+  "deployment_id": "dpl_8oxZQKNKk6pHGac6JGCtE2vHZmiN",
+  "git_commit": "1096bfd4a46c3590998e3fcc6021c11fbf6a78b8",
+  "target": "production",
+  "strict_enforcement": false,
+  "total": 14,
+  "passed": 14,
+  "checks": [
+    {
+      "name": "home",
+      "method": "GET",
+      "path": "/",
+      "status": 200,
+      "expected_status": 200,
+      "passed": true
+    },
+    {
+      "name": "pricing",
+      "method": "GET",
+      "path": "/pricing",
+      "status": 200,
+      "expected_status": 200,
+      "passed": true,
+      "devices_row_verified": true
+    },
+    {
+      "name": "privacy",
+      "method": "GET",
+      "path": "/privacy",
+      "status": 200,
+      "expected_status": 200,
+      "passed": true
+    },
+    {
+      "name": "delete-page",
+      "method": "GET",
+      "path": "/delete-account",
+      "status": 200,
+      "expected_status": 200,
+      "passed": true
+    },
+    {
+      "name": "404",
+      "method": "GET",
+      "path": "/verification-missing-20261005",
+      "status": 404,
+      "expected_status": 404,
+      "passed": true
+    },
+    {
+      "name": "ai-unauthenticated",
+      "method": "POST",
+      "path": "/api/ai/search",
+      "status": 401,
+      "expected_status": 401,
+      "passed": true
+    },
+    {
+      "name": "delete-unauthenticated",
+      "method": "POST",
+      "path": "/api/account/delete",
+      "status": 401,
+      "expected_status": 401,
+      "passed": true
+    },
+    {
+      "name": "checkout-unauthenticated",
+      "method": "POST",
+      "path": "/api/stripe/create-checkout",
+      "status": 401,
+      "expected_status": 401,
+      "passed": true
+    },
+    {
+      "name": "portal-unauthenticated",
+      "method": "POST",
+      "path": "/api/stripe/portal",
+      "status": 401,
+      "expected_status": 401,
+      "passed": true
+    },
+    {
+      "name": "unsigned-webhook",
+      "method": "POST",
+      "path": "/api/stripe/webhook",
+      "status": 400,
+      "expected_status": 400,
+      "passed": true
+    },
+    {
+      "name": "android-ai-cors",
+      "method": "OPTIONS",
+      "path": "/api/ai/search",
+      "status": 204,
+      "expected_status": 204,
+      "passed": true,
+      "allow_origin": "https://localhost",
+      "allow_headers": "Authorization, Content-Type, X-WebVault-Device"
+    },
+    {
+      "name": "android-delete-cors",
+      "method": "OPTIONS",
+      "path": "/api/account/delete",
+      "status": 204,
+      "expected_status": 204,
+      "passed": true,
+      "allow_origin": "https://localhost",
+      "allow_headers": "Authorization, Content-Type, X-WebVault-Device"
+    },
+    {
+      "name": "pwa-manifest",
+      "method": "GET",
+      "path": "/manifest.webmanifest",
+      "status": 200,
+      "expected_status": 200,
+      "passed": true,
+      "size_bytes": 917
+    },
+    {
+      "name": "app-icon",
+      "method": "GET",
+      "path": "/icon-192.png",
+      "status": 200,
+      "expected_status": 200,
+      "passed": true,
+      "size_bytes": 5698
+    }
+  ],
+  "real_email_test": false,
+  "physical_device_test": false,
+  "signed_in_crud_test": false,
+  "paid_ai_test": false,
+  "removed_test_assumptions": [
+    {
+      "name": "terms",
+      "method": "GET",
+      "path": "/terms",
+      "status": 404,
+      "expected_status": 200,
+      "passed": false
+    },
+    {
+      "name": "support",
+      "method": "GET",
+      "path": "/support",
+      "status": 404,
+      "expected_status": 200,
+      "passed": false
+    }
+  ],
+  "removed_test_assumptions_reason": "These routes do not exist in the source tree; their 404 responses were expected and were not deployment regressions.",
+  "browser": {
+    "landing_en": "passed",
+    "landing_bg": "passed",
+    "pricing_en": "passed",
+    "pricing_bg": "passed",
+    "devices_row_verified": true,
+    "application_errors": 0,
+    "unrelated_extension_errors_excluded": 5,
+    "screenshot": "production-pricing-bg.jpg"
+  },
+  "runtime_error_scan": {
+    "deployment_id": "dpl_8oxZQKNKk6pHGac6JGCtE2vHZmiN",
+    "since": "2026-10-05T19:40:19Z",
+    "until": "2026-10-05T19:42:16Z",
+    "error_and_fatal_logs_found": 0,
+    "scope": "No errors in the observed deployment-scoped window; not a long-term monitoring result."
+  }
+}

@@ -1,5 +1,12 @@
 # WebVault — HANDOFF
 
+## 5 October 2026 — signed Android 1.0.5 verified; required web/API published
+
+- Owner supplied **WebVault-1.0.5-code-6-signed.aab**, 3,557,670 bytes, SHA-256 `cf562407abe703eab114c648b7fca8845e70a869ae36f6227b4bdd10061dae7b`. Independent jarsigner, expected 1.0.4 upload certificate, bundletool validation and manifest identity checks passed. All **487 payload entries** exactly match the previously verified unsigned AAB. The private upload key remains with the owner.
+- [PR #6](https://github.com/tneykov-hub/webvault/pull/6) is merged as `1096bfd4a46c3590998e3fcc6021c11fbf6a78b8`; its tree matches the verified branch exactly. Required web/API production is READY at https://webvault.site/, deployment `dpl_8oxZQKNKk6pHGac6JGCtE2vHZmiN`. Production HTTP checks passed **14/14** for existing public pages, unauthenticated API rejection, unsigned webhook rejection, PWA assets and Android device-header CORS. EN/BG landing/pricing browser checks passed with zero application errors; unrelated extension errors are excluded. No runtime error/fatal log was found in the observed deployment-scoped window. Proof is in `docs/device-security/production-verification.json` and `production-pricing-bg.jpg`.
+- **Strict enforcement remains OFF**, confirmed read-only after the web merge preparation. Google Play upload/review/publication, real email approval, signed-in CRUD, paid AI and physical-device checks remain pending. Existing native clients retain server compatibility until enforcement is deliberately enabled after rollout.
+- Updated release archives contain the signed AAB, verification records, existing unsigned AAB/local signer and complete sources/history. See `docs/android-release-1.0.5/README-BG.md`. Earlier pending-signing/production statements below are historical and superseded by this section.
+
 ## 5 October 2026 — Android 1.0.5 AAB built; owner signing and Alpha rollout pending
 
 - The owner requested the Android update after confirming that 1.0.4 / code 5 was published in Closed testing – Alpha on 3 October 2026. Built **1.0.5 / code 6**, package `site.webvault.app`, SDK 24/36, from application source `afabb41c5730d0f7dbce03e3382947bd9f96ca87`. No application runtime source changed after the previously verified implementation.

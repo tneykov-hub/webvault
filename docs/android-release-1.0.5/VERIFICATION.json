@@ -13,7 +13,7 @@
   "unsigned_aab_size_bytes": 3494486,
   "unsigned_aab_sha256": "3ae0191de769183cfcb6893a75a75cbed342fd6861949c17be16f8e1643ab12e",
   "unsigned_aab_built": true,
-  "signed_aab": false,
+  "signed_aab": true,
   "bundletool_validate": "passed",
   "zip_crc_and_duplicate_names": "passed",
   "bundle_entries": 487,
@@ -64,7 +64,7 @@
   "physical_device_test": false,
   "real_email_test": false,
   "strict_enforcement": false,
-  "production_web_updated": false,
+  "production_web_updated": true,
   "required_web_pull_request": "https://github.com/tneykov-hub/webvault/pull/6",
   "previous_alpha_release": {
     "version_name": "1.0.4",
@@ -73,5 +73,15 @@
     "published_on_as_displayed": "Oct 03, 2026, 12:00 AM",
     "evidence": "Owner-provided Submission 3 screenshot, 5 October 2026"
   },
-  "signing_helper_real_bundle_check_only": "passed"
+  "signing_helper_real_bundle_check_only": "passed",
+  "signed_aab_file": "WebVault-1.0.5-code-6-signed.aab",
+  "signed_aab_size_bytes": 3557670,
+  "signed_aab_sha256": "cf562407abe703eab114c648b7fca8845e70a869ae36f6227b4bdd10061dae7b",
+  "signed_aab_verified_at": "2026-10-05T19:37:40.225047+00:00",
+  "signature_verified": true,
+  "payload_entries_verified": 487,
+  "payload_unchanged": true,
+  "production_deployment_id": "dpl_8oxZQKNKk6pHGac6JGCtE2vHZmiN",
+  "production_application_commit": "1096bfd4a46c3590998e3fcc6021c11fbf6a78b8",
+  "owner_windows_signing_result": "Owner supplied signed AAB; independent signature/certificate/487-payload checks passed."
 }

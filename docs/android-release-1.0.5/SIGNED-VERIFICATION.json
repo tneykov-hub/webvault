@@ -1,0 +1,16 @@
+{
+  "application_id": "site.webvault.app",
+  "version_name": "1.0.5",
+  "version_code": 6,
+  "signed_aab": "WebVault-1.0.5-code-6-signed.aab",
+  "size_bytes": 3557670,
+  "signed_aab_sha256": "cf562407abe703eab114c648b7fca8845e70a869ae36f6227b4bdd10061dae7b",
+  "unsigned_aab_sha256": "3ae0191de769183cfcb6893a75a75cbed342fd6861949c17be16f8e1643ab12e",
+  "upload_certificate_sha256": "7EB1457890F22448462D40E6368094D4181587D5278A46714AD44A0165FFA4E0",
+  "signature_verified": true,
+  "payload_unchanged": true,
+  "payload_entries_verified": 487,
+  "bundletool_validation_passed": true,
+  "google_play_uploaded": false,
+  "verified_at": "2026-10-05T19:37:40.225047+00:00"
+}
