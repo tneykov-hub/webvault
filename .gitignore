@@ -20,6 +20,10 @@
 # misc
 .DS_Store
 *.pem
+*.jks
+*.keystore
+*.p12
+*.pfx
 
 # debug
 npm-debug.log*
@@ -41,3 +45,6 @@ next-env.d.ts
 /.sites-runtime/
 /outputs/
 /work/
+
+# Supabase CLI local metadata
+supabase/.temp/

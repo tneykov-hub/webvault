@@ -1,10 +1,12 @@
 "use client";
 
+import { DeviceSecurityGate } from "@/components/device-security";
+import { getDeviceAccess, releaseDeviceAccess, type DeviceAccess } from "@/lib/device-access";
+
 import type { FormEvent, ReactNode } from "react";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { ArrowRight, Check, LoaderCircle, LockKeyhole, LogIn, Mail, Play, Search, ShieldCheck, Sparkles, UserPlus } from "lucide-react";
-import Link from "next/link";
 import { supabase, supabaseConfigurationError } from "@/lib/supabase";
 import { consumeNativeAuthUrl, NATIVE_AUTH_URL_EVENT, webVaultAuthRedirectUrl } from "@/lib/native-app";
 
@@ -74,6 +76,7 @@ const authEnglishCopy: Record<string, string> = {
   "Още една стъпка": "One more step",
   "Базата данни още не е подготвена за WebVault. Изпълни SQL схемата в Supabase и опитай отново.": "The database is not ready for WebVault yet. Apply the Supabase SQL schema and try again.",
   "Провери отново": "Check again",
+  "Не успяхме да проверим достъпа. Провери връзката си и опитай отново.": "We could not verify your access. Check your connection and try again.",
   Подготовка: "Setup",
   "Връзката се настройва": "Connection is being configured",
   "Supabase връзката още не е налична. Обнови страницата след малко.": "The Supabase connection is not available yet. Refresh the page shortly.",
@@ -92,19 +95,29 @@ function useAuthLanguage() {
   return useContext(AuthLanguageContext);
 }
 
+function storedAuthLanguage(): AuthLanguage {
+  return window.localStorage.getItem("webvault-language") === "bg" ? "bg" : "en";
+}
+
+function subscribeAuthLanguage(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener("webvault-language-change", onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener("webvault-language-change", onChange);
+  };
+}
+
 function AuthLanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<AuthLanguage>(() => {
-    if (typeof window === "undefined") return "en";
-    return window.localStorage.getItem("webvault-language") === "bg" ? "bg" : "en";
-  });
+  const language = useSyncExternalStore(subscribeAuthLanguage, storedAuthLanguage, () => "en" as AuthLanguage);
 
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
 
   function setLanguage(nextLanguage: AuthLanguage) {
-    setLanguageState(nextLanguage);
     window.localStorage.setItem("webvault-language", nextLanguage);
+    window.dispatchEvent(new Event("webvault-language-change"));
   }
 
   const value = useMemo(() => ({
@@ -127,11 +140,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
 }
 
 function AuthGateContent({ children }: { children: ReactNode }) {
-  const { setLanguage, t } = useAuthLanguage();
+  const { language, setLanguage, t } = useAuthLanguage();
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(() => !supabase);
   const [setupError, setSetupError] = useState(false);
-  const [deviceLimitError, setDeviceLimitError] = useState("");
+  const [deviceAccess, setDeviceAccess] = useState<DeviceAccess | null>(null);
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [authUrlError, setAuthUrlError] = useState(() => {
@@ -140,31 +153,15 @@ function AuthGateContent({ children }: { children: ReactNode }) {
     return urlError ? t(urlError) : "";
   });
 
-  async function prepareAccount() {
+  async function prepareAccount(takeover = false) {
     if (!supabase) return false;
-    const bootstrap = await supabase.rpc("bootstrap_my_sites_account");
-    if (bootstrap.error) {
-      setSetupError(true);
-      return false;
-    }
-    const deviceId = getOrCreateDeviceId();
-    const device = await supabase.rpc("register_webvault_device", {
-      p_device_id: deviceId,
-      p_device_label: navigator.userAgent.slice(0, 120),
-    });
-    if (device.error) {
-      const message = device.error.message || t("Не успяхме да регистрираме това устройство.");
-      if (/one device|едно устройство/i.test(message)) {
-        setDeviceLimitError(t("Безплатният план е активен на друго устройство. Стани PRO, за да използваш WebVault навсякъде."));
-        setSetupError(false);
-        return false;
-      }
-      setSetupError(true);
-      return false;
-    }
-    setDeviceLimitError("");
-    setSetupError(false);
-    return true;
+    try {
+      const bootstrap = await supabase.rpc("bootstrap_my_sites_account");
+      if (bootstrap.error) throw bootstrap.error;
+      const device = await getDeviceAccess(takeover);
+      setDeviceAccess(device); setSetupError(false);
+      return device.status === "active" && !device.confirmation;
+    } catch { setSetupError(true); return false; }
   }
 
   useEffect(() => {
@@ -180,11 +177,13 @@ function AuthGateContent({ children }: { children: ReactNode }) {
       if (nativeUrlError) setAuthUrlError(t(nativeUrlError));
     };
     const initialise = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!active) return;
-      setSession(data.session);
-      if (data.session) await prepareAccount();
-      if (active) setReady(true);
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!active) return;
+        setSession(data.session);
+        if (data.session) await prepareAccount();
+      } catch { if (active) setSetupError(true); }
+      finally { if (active) setReady(true); }
     };
 
     void initialise();
@@ -192,8 +191,8 @@ function AuthGateContent({ children }: { children: ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       if (event === "PASSWORD_RECOVERY") setRecoveryMode(true);
-      if (nextSession) void prepareAccount();
-      else { setSetupError(false); setDeviceLimitError(""); }
+      if (nextSession) window.setTimeout(() => { if (active) void prepareAccount(); }, 0);
+      else { setSetupError(false); setDeviceAccess(null); }
     });
 
     return () => {
@@ -206,28 +205,48 @@ function AuthGateContent({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!session?.user.id) return;
+    let active = true;
+    const refresh = async () => {
+      if (document.visibilityState === "hidden") return;
+      try { const result = await getDeviceAccess(); if (active) { setDeviceAccess(result); setSetupError(false); } }
+      catch { if (active) { setDeviceAccess(null); setSetupError(true); } }
+    };
+    const visibility = () => {
+      if (document.visibilityState === "hidden") void releaseDeviceAccess().catch(() => undefined);
+      else void refresh();
+    };
+    const timer = window.setInterval(() => void refresh(), 30000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", visibility);
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", visibility); };
+  }, [session?.user.id]);
+
+  useEffect(() => {
     if (!authUrlError) return;
     window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
   }, [authUrlError]);
 
   async function signOut() {
     if (!supabase) return;
-    await supabase.auth.signOut();
+    await releaseDeviceAccess().catch(() => undefined);
+    await supabase.auth.signOut({ scope: "local" });
     setLanguage(window.localStorage.getItem("webvault-language") === "bg" ? "bg" : "en");
     setSession(null);
     setShowAuth(false);
-    setDeviceLimitError("");
+    setDeviceAccess(null);
   }
 
-  const value = useMemo(() => session ? ({ session, signOut }) : null, [session]);
+  const value = session ? { session, signOut } : null;
 
   if (supabaseConfigurationError) return <ConfigurationMessage />;
   if (!ready) return <AuthFrame><div className="auth-loading"><LoaderCircle size={22} className="spin" /> {t("Проверяваме сигурния ти вход…")}</div></AuthFrame>;
   if (!session && !showAuth) return <PublicLanding onStart={() => setShowAuth(true)} />;
   if (!session) return <AuthForm initialError={authUrlError} />;
   if (recoveryMode) return <PasswordRecovery onDone={() => setRecoveryMode(false)} />;
-  if (deviceLimitError) return <DeviceLimitMessage message={deviceLimitError} signOut={signOut} />;
   if (setupError) return <SetupMessage retry={prepareAccount} signOut={signOut} />;
+  if (!deviceAccess) return <AuthFrame><div className="auth-loading"><LoaderCircle size={22} className="spin" />{t("Проверяваме сигурния ти вход…")}</div></AuthFrame>;
+  if (deviceAccess.status !== "active" || deviceAccess.confirmation) return <AuthFrame><DeviceSecurityGate access={deviceAccess} email={session.user.email ?? ""} language={language} onRefresh={prepareAccount} onSignOut={signOut} /></AuthFrame>;
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -235,9 +254,9 @@ function AuthGateContent({ children }: { children: ReactNode }) {
 function PublicLanding({ onStart }: { onStart: () => void }) {
   const { language, setLanguage } = useAuthLanguage();
   const copy = language === "en" ? {
-    tagline: "Your sites. Organized.", eyebrow: "Personal web start", titleA: "Everything important online.", titleB: "In one place.", intro: "WebVault turns scattered bookmarks into a fast, beautiful and private dashboard.", start: "Start for free", googlePlay: "Get it on Google Play", login: "Log in", private: "Your data stays private", search: "Search your sites…", dashboard: "Your dashboard", sites: "sites", football: "Football", work: "Work", news: "News", synced: "Private and secure", findTitle: "Find it instantly", findText: "Search by name, address or category as you type.", secureTitle: "Private by design", secureText: "Your own account keeps your bookmarks yours.", anywhereTitle: "Grow when you need it", anywhereText: "Free starts on one device; PRO adds ChatGPT web search and sync across all your devices.", planLabel: "GET STARTED", planTitle: "Start for free", planText: "Up to 30 sites and 3 categories. PRO adds more space and ChatGPT web search.", sync: "Up to 30 saved sites", organize: "Up to 3 categories, favourites and search", backup: "Bookmark import and export included", create: "Create your account", footer: "Private access to your sites"
+    tagline: "Your sites. Organized.", eyebrow: "Personal web start", titleA: "Everything important online.", titleB: "In one place.", intro: "WebVault turns scattered bookmarks into a fast, beautiful and private dashboard.", start: "Start for free", googlePlay: "Get it on Google Play", login: "Log in", private: "Your data stays private", search: "Search your sites…", dashboard: "Your dashboard", sites: "sites", football: "Football", work: "Work", news: "News", synced: "Private and secure", findTitle: "Find it instantly", findText: "Search by name, address or category as you type.", secureTitle: "Private by design", secureText: "Your own account keeps your bookmarks yours.", anywhereTitle: "Grow when you need it", anywhereText: "Free starts on one device; PRO adds ChatGPT web search and sync across up to 3 approved devices.", planLabel: "GET STARTED", planTitle: "Start for free", planText: "Up to 30 sites and 3 categories. PRO adds more space and ChatGPT web search.", sync: "Up to 30 saved sites", organize: "Up to 3 categories, favourites and search", backup: "Bookmark import and export included", create: "Create your account", footer: "Private access to your sites"
   } : {
-    tagline: "Твоите сайтове. Подредени.", eyebrow: "Личен уеб старт", titleA: "Всичко важно в интернет.", titleB: "На едно място.", intro: "WebVault превръща разпилените отметки в бързо, красиво и лично табло.", start: "Започни безплатно", googlePlay: "Вземи от Google Play", login: "Вход", private: "Данните ти са лични", search: "Търси в сайтовете си…", dashboard: "Твоето табло", sites: "сайта", football: "Футбол", work: "Работа", news: "Новини", synced: "Лично и сигурно", findTitle: "Намираш веднага", findText: "Търсене по име, адрес и категория още докато пишеш.", secureTitle: "Само за теб", secureText: "Влизаш със собствен акаунт и твоите данни остават твои.", anywhereTitle: "Расте с теб", anywhereText: "Безплатно на едно устройство; PRO добавя търсене с ChatGPT и синхронизация между всички твои устройства.", planLabel: "СТАРТ", planTitle: "Започни безплатно", planText: "До 30 сайта и 3 категории. PRO добавя повече място и търсене с ChatGPT.", sync: "До 30 запазени сайта", organize: "До 3 категории, любими и търсене", backup: "Импорт и експорт на отметки", create: "Създай акаунт", footer: "Личен достъп до твоите сайтове"
+    tagline: "Твоите сайтове. Подредени.", eyebrow: "Личен уеб старт", titleA: "Всичко важно в интернет.", titleB: "На едно място.", intro: "WebVault превръща разпилените отметки в бързо, красиво и лично табло.", start: "Започни безплатно", googlePlay: "Вземи от Google Play", login: "Вход", private: "Данните ти са лични", search: "Търси в сайтовете си…", dashboard: "Твоето табло", sites: "сайта", football: "Футбол", work: "Работа", news: "Новини", synced: "Лично и сигурно", findTitle: "Намираш веднага", findText: "Търсене по име, адрес и категория още докато пишеш.", secureTitle: "Само за теб", secureText: "Влизаш със собствен акаунт и твоите данни остават твои.", anywhereTitle: "Расте с теб", anywhereText: "Безплатно на едно устройство; PRO добавя търсене с ChatGPT и синхронизация между до 3 потвърдени устройства.", planLabel: "СТАРТ", planTitle: "Започни безплатно", planText: "До 30 сайта и 3 категории. PRO добавя повече място и търсене с ChatGPT.", sync: "До 30 запазени сайта", organize: "До 3 категории, любими и търсене", backup: "Импорт и експорт на отметки", create: "Създай акаунт", footer: "Личен достъп до твоите сайтове"
   };
   return <main className="landing-page">
     <div className="landing-glow landing-glow-a" /><div className="landing-glow landing-glow-b" />
@@ -382,34 +401,10 @@ function AuthFrame({ children }: { children: ReactNode }) {
   return <main className="auth-page"><div className="auth-orb one" /><div className="auth-orb two" /><section className="auth-card"><div className="auth-brand"><span className="brand-mark"><i /><i /><i /><i /></span><span><strong>WebVault</strong><small>{t("Всичко важно на едно място")}</small></span><div className="auth-language" aria-label={t("Език")}><button className={language === "en" ? "active" : ""} type="button" onClick={() => setLanguage("en")}>EN</button><button className={language === "bg" ? "active" : ""} type="button" onClick={() => setLanguage("bg")}>BG</button></div></div>{children}</section></main>;
 }
 
-function getOrCreateDeviceId() {
-  const key = "webvault-device-id";
-  try {
-    const existing = window.localStorage.getItem(key);
-    if (existing && existing.length >= 16) return existing;
-    const next = typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `browser-${navigator.userAgent.slice(0, 80)}`;
-    window.localStorage.setItem(key, next);
-    return next;
-  } catch {
-    return `browser-${navigator.userAgent.slice(0, 80)}`;
-  }
-}
-
-function DeviceLimitMessage({ message, signOut }: { message: string; signOut: () => Promise<void> }) {
-  const { t } = useAuthLanguage();
-  return <AuthFrame><div className="auth-badge"><ShieldCheck size={15} /> {t("План и устройства")}</div><h1>{t("Нужно е WebVault PRO")}</h1><p>{message}</p><div className="auth-actions"><Link className="auth-primary" href="/pricing"><CrownIcon />{t("Стани PRO")}</Link><button className="auth-switch" onClick={() => void signOut()}>{t("Изход")}</button></div></AuthFrame>;
-}
-
-function CrownIcon() {
-  return <Sparkles size={18} />;
-}
-
 function SetupMessage({ retry, signOut }: { retry: () => Promise<boolean>; signOut: () => Promise<void> }) {
   const { t } = useAuthLanguage();
   const [busy, setBusy] = useState(false);
-  return <AuthFrame><div className="auth-badge"><Mail size={15} /> {t("Входът е успешен")}</div><h1>{t("Още една стъпка")}</h1><p>{t("Базата данни още не е подготвена за WebVault. Изпълни SQL схемата в Supabase и опитай отново.")}</p><div className="auth-actions"><button className="auth-primary" disabled={busy} onClick={async () => { setBusy(true); await retry(); setBusy(false); }}>{busy ? <LoaderCircle size={18} className="spin" /> : null}{t("Провери отново")}</button><button className="auth-switch" onClick={() => void signOut()}>{t("Изход")}</button></div></AuthFrame>;
+  return <AuthFrame><div className="auth-badge"><Mail size={15} /> {t("Входът е успешен")}</div><h1>{t("Още една стъпка")}</h1><p>{t("Не успяхме да проверим достъпа. Провери връзката си и опитай отново.")}</p><div className="auth-actions"><button className="auth-primary" disabled={busy} onClick={async () => { setBusy(true); await retry(); setBusy(false); }}>{busy ? <LoaderCircle size={18} className="spin" /> : null}{t("Провери отново")}</button><button className="auth-switch" onClick={() => void signOut()}>{t("Изход")}</button></div></AuthFrame>;
 }
 
 function ConfigurationMessage() {

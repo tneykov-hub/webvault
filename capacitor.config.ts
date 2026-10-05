@@ -13,6 +13,11 @@ const config: CapacitorConfig = {
     scrollEnabled: true,
   },
   plugins: {
+    SystemBars: {
+      insetsHandling: "css",
+      style: "LIGHT",
+      hidden: false,
+    },
     Keyboard: {
       resize: KeyboardResize.Native,
       autoBackdropColor: "auto",

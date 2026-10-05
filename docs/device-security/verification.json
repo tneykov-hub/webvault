@@ -1,0 +1,83 @@
+{
+  "date": "2026-10-05",
+  "branch": "codex/pro-device-security-20261005",
+  "baseCommit": "347875c71ff9ef20e69e14577fcda3e8822c42db",
+  "newSecurityTests": {
+    "total": 15,
+    "passed": 15,
+    "failed": 0
+  },
+  "fullDirectSuite": {
+    "total": 135,
+    "passed": 131,
+    "failed": 4,
+    "newFailures": 0,
+    "baselineFailures": [
+      "server-rendered landing metadata",
+      "rendered development-preview metadata expects missing dist",
+      "privacy-conscious acquisition event assertion",
+      "animation/scroll utilities expect missing dist"
+    ]
+  },
+  "build": {
+    "nextProductionAndTypescript": true,
+    "mobile": true,
+    "mobileMainJsKB": 740.61,
+    "mobileMainJsGzipKB": 214.87
+  },
+  "targetedEslint": true,
+  "liveSql": {
+    "project": "imnekcjyzjzgskkplyri",
+    "rolledBack": true,
+    "strictModeTestPassed": true,
+    "enforced": false,
+    "profiles": 19,
+    "profileDigest": "877756ede635603632ee0f46d8f350f8",
+    "persistedTestUsers": 0,
+    "persistedTestDevices": 0
+  },
+  "migrations": [
+    "20261005070419_enforce_device_access",
+    "20261005071512_device_security_private_policies"
+  ],
+  "securityAdvisor": {
+    "newFindings": 0,
+    "baselineWarnings": [
+      "bootstrap_my_sites_account and register_webvault_device public SECURITY DEFINER",
+      "Leaked Password Protection Disabled"
+    ]
+  },
+  "browserReport": "browser/verification.json",
+  "native": {
+    "versionName": "1.0.5",
+    "versionCode": 6,
+    "sourcePrepared": true,
+    "signedAab": false,
+    "playUploaded": false,
+    "physicalPhoneTest": false,
+    "mobileAssetsMatched": 16,
+    "nativePublicAssets": 18
+  },
+  "realEmailDelivery": false,
+  "realPayment": false,
+  "realAiProviderCall": false,
+  "productionCodePublished": false,
+  "limitations": [
+    "Full enforcement remains disabled pending web/native rollout",
+    "Intentional sharing of email, both token and installation secret, or sequential use cannot identify distinct humans",
+    "Realtime lacks the device header; focus/30-second data polling is the fallback"
+  ],
+  "publishing": {
+    "githubPush": "published-via-connected-GitHub-account",
+    "ownerExplicitApproval": true,
+    "repository": "tneykov-hub/webvault",
+    "pullRequestCreated": true,
+    "pullRequest": "https://github.com/tneykov-hub/webvault/pull/6",
+    "draft": true,
+    "onlinePreviewCreated": true,
+    "previewVerified": true,
+    "previewReport": "preview-verification.json",
+    "firstPublishedCommit": "15a5179cac1a09de6facb4c480df57193811562e",
+    "verifiedSourceTree": "6e14e93b332a1e62e0b6afeedff795167d0ab941"
+  }
+}

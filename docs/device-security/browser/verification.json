@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-05T07:33:17.441Z",
+  "browser": "153.0.8010.0",
+  "checks": [
+    {
+      "name": "new-device-en-desktop",
+      "language": "en",
+      "viewport": "desktop",
+      "rpcCalls": 5
+    },
+    {
+      "name": "new-device-bg-mobile",
+      "language": "bg",
+      "viewport": "mobile",
+      "rpcCalls": 4
+    },
+    {
+      "name": "transfer-bg-mobile",
+      "language": "bg",
+      "viewport": "mobile",
+      "rpcCalls": 7
+    },
+    {
+      "name": "email-approval-replacement",
+      "language": "en",
+      "viewport": "desktop",
+      "rpcCalls": 6
+    },
+    {
+      "name": "profile-device-management",
+      "language": "en",
+      "viewport": "desktop",
+      "rpcCalls": 8
+    },
+    {
+      "name": "expired-session",
+      "language": "en",
+      "viewport": "desktop",
+      "rpcCalls": 5
+    },
+    {
+      "name": "remove-current-device",
+      "language": "en",
+      "viewport": "desktop",
+      "rpcCalls": 8
+    }
+  ],
+  "pageErrors": [],
+  "http": [
+    {
+      "endpoint": "/api/ai/search",
+      "status": 401,
+      "authenticated": false
+    },
+    {
+      "endpoint": "/api/account/delete",
+      "status": 401,
+      "authenticated": false
+    },
+    {
+      "endpoint": "/api/stripe/create-checkout",
+      "status": 401,
+      "authenticated": false
+    },
+    {
+      "endpoint": "/api/stripe/portal",
+      "status": 401,
+      "authenticated": false
+    },
+    {
+      "endpoint": "/api/ai/search",
+      "method": "OPTIONS",
+      "status": 204,
+      "deviceHeaderAllowed": true
+    }
+  ],
+  "backend": "Mocked Supabase Auth/REST; executable PostgreSQL/RLS and live rollback checks are separate",
+  "realEmailDelivery": false,
+  "physicalPhone": false
+}
