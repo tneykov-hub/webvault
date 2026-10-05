@@ -1,5 +1,13 @@
 # WebVault — HANDOFF
 
+## 5 October 2026 — Android 1.0.5 AAB built; owner signing and Alpha rollout pending
+
+- The owner requested the Android update after confirming that 1.0.4 / code 5 was published in Closed testing – Alpha on 3 October 2026. Built **1.0.5 / code 6**, package `site.webvault.app`, SDK 24/36, from application source `afabb41c5730d0f7dbce03e3382947bd9f96ca87`. No application runtime source changed after the previously verified implementation.
+- Real Gradle release build and release lint passed with **298 tasks**, Gradle 8.14.3 / AGP 8.13.0 / Temurin 21.0.12.1. AAB size **3,494,486 bytes**, SHA-256 `3ae0191de769183cfcb6893a75a75cbed342fd6861949c17be16f8e1643ab12e`. Bundletool validates it; manifest is 1.0.5 / 6 and non-debuggable. All 18 bundled public assets match the prepared source; device protocol and SystemBars CSS insets are present.
+- The AAB is **unsigned**, not uploaded to Play. The existing upload key is held by the owner. `scripts/sign-android-bundle.ps1`, packaged with `SIGN-1.0.5.cmd`, signs the prebuilt AAB locally, verifies the 1.0.4 upload certificate, checks all payload hashes, and produces the signed AAB plus verification JSON. Parsing, five refusal/preflight scenarios and the real bundle preflight passed. The real private key and Windows file picker were not tested.
+- Android 1.0.5 depends on the new production web/API code for its mail approval handler and `X-WebVault-Device` CORS support. [PR #6](https://github.com/tneykov-hub/webvault/pull/6) remains draft; **production web and strict enforcement remain unchanged/OFF**. Before distributing/testing the new native app, finish the web deployment and real email/native checks. Do not enable strict enforcement until clients have updated.
+- The complete backup includes the unsigned AAB, local signer, EN/BG release notes, native sources, proof of the prior Alpha publication, and preserved historical releases. A small `WebVault-Android-1.0.5-Alpha-Update.zip` contains only the prebuilt bundle, signer and release documentation. Build caches, SDK/JDK downloads and fixture keys are excluded. See [docs/android-release-1.0.5/README-BG.md](docs/android-release-1.0.5/README-BG.md) and its verification JSON.
+
 ## 5 October 2026 — draft PR #6 and verified Preview; enforcement staged OFF
 
 - Owner authorized the agreed protection: PRO has up to 3 email-approved installations and one active device/session; FREE has one. Added approval, explicit takeover and device removal UI in EN/BG. Backend uses a random installation secret, private hashed registry, serialized admission, live Auth session checks, expiring leases, restrictive RLS and server API guards. Editable metadata does not authorize email approval.

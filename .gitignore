@@ -20,6 +20,10 @@
 # misc
 .DS_Store
 *.pem
+*.jks
+*.keystore
+*.p12
+*.pfx
 
 # debug
 npm-debug.log*
