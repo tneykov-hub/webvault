@@ -85,7 +85,7 @@ export async function POST(request: Request) {
   let lease: string | undefined;
   let providerSignal: AbortSignal | undefined;
   try {
-    const auth = await authenticateStripeRequest(request);
+    const auth = await authenticateStripeRequest(request, undefined, true);
     if ("error" in auth) return json(request, { error: auth.error }, auth.status);
 
     const body = await readJsonBody(request);

@@ -47,7 +47,7 @@ async function deleteUserSiteIcons(userId: string) {
 
 export async function POST(request: Request) {
   try {
-    const auth = await authenticateStripeRequest(request);
+    const auth = await authenticateStripeRequest(request, undefined, true);
     if ("error" in auth) return json(request, { error: auth.error }, auth.status);
 
     const admin = getSupabaseAdmin();

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { deviceRequestHeaders } from "@/lib/device-identity";
 
 // These are intentionally public browser values. Database access remains protected
 // by Supabase Auth and Row Level Security; no secret/service-role key is used here.
@@ -17,6 +18,13 @@ export const supabaseConfigurationError =
     : null;
 
 export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
+  global: {
+    fetch: (input, init) => {
+      const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+      for (const [key, value] of Object.entries(deviceRequestHeaders())) headers.set(key, value);
+      return fetch(input, { ...init, headers });
+    },
+  },
   auth: {
     autoRefreshToken: true,
     persistSession: true,

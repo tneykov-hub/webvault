@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "How WebVault handles account, bookmark, device, and subscription information.",
 };
 
-const updated = "September 22, 2026";
+const updated = "October 5, 2026";
 const supportEmail = "tneykov@gmail.com";
 const deletionMailto = `mailto:${supportEmail}?subject=WebVault%20account%20deletion%20request`;
 
@@ -34,7 +34,7 @@ export default function PrivacyPage() {
             <li><strong>Account information:</strong> your email address, optional display name, and a service-generated account identifier used to sign in and secure your account.</li>
             <li><strong>Your WebVault content:</strong> saved website addresses, titles, descriptions, categories, favourites, display preferences, visit activity, and optional custom icons that you choose to add.</li>
             <li><strong>Subscription information:</strong> your subscription status and technical Stripe customer, subscription, and price identifiers. Card and bank details are processed by Stripe and are not stored by WebVault.</li>
-            <li><strong>Technical information:</strong> a service-generated device identifier plus basic device and browser information used to provide sync, apply the selected plan, secure the service, and troubleshoot it.</li>
+            <li><strong>Technical information:</strong> a service-generated device identifier, a hashed installation secret, a basic device and browser label, approval and last-seen times, and active-session information used to provide sync, apply device limits, secure the service, and troubleshoot it. New-device approval uses a temporary confirmation request and an email to your account address.</li>
           </ul>
         </section>
 
@@ -72,6 +72,7 @@ export default function PrivacyPage() {
         <section>
           <h2>6. Cookies and local storage</h2>
           <p>WebVault uses essential browser storage and authentication tokens to keep you signed in and to remember service settings. These are used to operate the service, not for behavioural advertising.</p>
+          <p>An installation secret is stored on your device to associate requests with an approved browser or app installation. Clearing that storage or reinstalling the app requires approval again. You can view and revoke approved devices in your profile settings.</p>
         </section>
 
         <section>

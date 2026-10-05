@@ -1,5 +1,8 @@
 "use client";
 
+import { DeviceManager } from "@/components/device-security";
+import { deviceRequestHeaders } from "@/lib/device-identity";
+
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent as ReactDragEvent, FormEvent, ReactNode } from "react";
 import Link from "next/link";
@@ -175,8 +178,8 @@ const englishCopy: Record<string, string> = {
   "Започни от нулата": "Start from scratch",
   "Добави първия си сайт ръчно.": "Add your first site manually.",
   "Данните ти са твои — можеш да ги експортираш по всяко време.": "Your data is yours — export it whenever you want.",
-  "Синхронизацията е активна на всички твои устройства.": "Sync is active across all your devices.",
-  "Записите се пазят в личния ти акаунт. PRO ги синхронизира на всички устройства.": "Your bookmarks are stored in your private account. PRO keeps them synced across all devices.",
+  "Синхронизацията е активна на до 3 потвърдени устройства.": "Sync is active across up to 3 approved devices.",
+  "Записите се пазят в личния ти акаунт. PRO ги синхронизира на до 3 потвърдени устройства.": "Your bookmarks are stored in your private account. PRO syncs them across up to 3 approved devices.",
   "Няма намерени сайтове": "No sites found",
   "Опитай с друго име, адрес или категория.": "Try another name, address or category.",
   сайт: "site",
@@ -245,7 +248,7 @@ const englishCopy: Record<string, string> = {
   "Добавя шест примерни отметки, които можеш да редактираш или изтриеш.": "Add six sample bookmarks that you can edit or delete.",
   "Прегледай примера": "Preview sample",
   "FREE: импорт до 30 сайта в наличните 3 категории. Останалите папки се поставят в „Други“.": "FREE: import up to 30 sites into the 3 available categories. Extra folders are placed in Other.",
-  "PRO: неограничен импорт и синхронизация на всички устройства.": "PRO: unlimited import and sync across all devices.",
+  "PRO: неограничен импорт и до 3 потвърдени устройства.": "PRO: unlimited import and sync across up to 3 approved devices.",
   "Добави данните": "Add data",
   "Импортваме…": "Importing…",
   "Невалидните записи ще бъдат пропуснати": "invalid entries will be skipped",
@@ -752,6 +755,7 @@ function Dashboard() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
+          ...deviceRequestHeaders(),
         },
         body: JSON.stringify({ query: searchTerm, language }),
       });
@@ -1617,7 +1621,7 @@ function Dashboard() {
             <button className="onboarding-option" onClick={openSampleCollection}><span className="onboarding-icon sample"><Sparkles size={21} /></span><span><strong>{t("Опитай примерна колекция")}</strong><small>{t("Прегледай подредено табло, преди да добавиш своите сайтове.")}</small></span></button>
             <button className="onboarding-option" onClick={() => openAddSite()}><span className="onboarding-icon manual"><Plus size={21} /></span><span><strong>{t("Започни от нулата")}</strong><small>{t("Добави първия си сайт ръчно.")}</small></span></button>
           </div>
-          <div className="onboarding-assurance"><span><Check size={15} />{t("Данните ти са твои — можеш да ги експортираш по всяко време.")}</span><span><Globe2 size={15} />{t(subscription.isPro ? "Синхронизацията е активна на всички твои устройства." : "Записите се пазят в личния ти акаунт. PRO ги синхронизира на всички устройства.")}</span></div>
+          <div className="onboarding-assurance"><span><Check size={15} />{t("Данните ти са твои — можеш да ги експортираш по всяко време.")}</span><span><Globe2 size={15} />{t(subscription.isPro ? "Синхронизацията е активна на до 3 потвърдени устройства." : "Записите се пазят в личния ти акаунт. PRO ги синхронизира на до 3 потвърдени устройства.")}</span></div>
         </section>}{!showInitialEmpty && !groups.some(({ items }) => items.length) && <div className="empty"><Search size={26} /><h2>{t("Няма намерени сайтове")}</h2><p>{t("Опитай с друго име, адрес или категория.")}</p></div>}</>}
         <footer><span>WebVault</span><span>{siteItems.length} {t("запазени сайта")} · {categories.length} {t("категории")}</span></footer>
       </div>
@@ -1695,7 +1699,7 @@ function Dashboard() {
           <div className="backup-stack">
             <input ref={importInputRef} className="sr-only" type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void prepareImport(file); }} />
             <input ref={chromeInputRef} className="sr-only" type="file" accept="text/html,.html" onChange={(event) => { const file = event.target.files?.[0]; if (file) void prepareChromeImport(file); }} />
-            <div className={`backup-plan-note ${subscription.isPro ? "pro" : ""}`}><Check size={16} /><span>{t(subscription.isPro ? "PRO: неограничен импорт и синхронизация на всички устройства." : "FREE: импорт до 30 сайта в наличните 3 категории. Останалите папки се поставят в „Други“.")}</span></div>
+            <div className={`backup-plan-note ${subscription.isPro ? "pro" : ""}`}><Check size={16} /><span>{t(subscription.isPro ? "PRO: неограничен импорт и до 3 потвърдени устройства." : "FREE: импорт до 30 сайта в наличните 3 категории. Останалите папки се поставят в „Други“.")}</span></div>
             <section className="backup-card">
               <div><strong>{t("Експорт на всички данни")}</strong><p>{t("Сваля JSON файл с категориите, сайтовете, реда и любимите.")}</p></div>
               <button className="category-button" onClick={exportBackup}><Download size={17} />{t("Свали backup")}</button>
@@ -1836,6 +1840,7 @@ function ProfileSettingsV2({ open, onOpenChange, email, displayName, onSaveDispl
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${sessionData.session.access_token}`,
+          ...deviceRequestHeaders(),
         },
       });
       if (!response.ok) throw new Error("Account deletion request failed.");
@@ -1853,7 +1858,7 @@ function ProfileSettingsV2({ open, onOpenChange, email, displayName, onSaveDispl
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="dialog-panel profile-dialog"><DialogHeader className="dialog-heading"><span className="modal-icon"><UserCircle size={20} /></span><div><DialogTitle>{t("Профил и настройки")}</DialogTitle><DialogDescription>{t("Профилът ти")}</DialogDescription></div></DialogHeader><div className="profile-stack">
     <form className="profile-card profile-form" onSubmit={updateDisplayName}><div className="profile-card-heading"><UserCircle size={18} /><strong>{t("Име в профила")}</strong></div><small>{t("Това име се вижда в поздрава и аватара.")}</small><label><input value={displayNameDraft} onChange={(event) => { setDisplayNameDraft(event.target.value); resetFeedback(); }} placeholder={t("Въведи име за профила")} minLength={2} maxLength={80} autoComplete="name" required /></label><button className="add-button" disabled={nameBusy}>{nameBusy ? <LoaderCircle size={17} className="spin" /> : <UserCircle size={17} />}{t("Запази името")}</button></form>
     <section className="profile-card"><div className="profile-card-heading"><UserCircle size={18} /><strong>{t("Имейл")}</strong></div><p className="profile-email">{email}</p><small>{t("Този имейл е свързан с акаунта ти.")}</small></section>
-    <section className="profile-card"><div className="profile-card-heading"><Settings2 size={18} /><strong>{t("Език")}</strong></div><div className="profile-choice-row"><button className={language === "en" ? "profile-choice active" : "profile-choice"} onClick={() => setLanguage("en")}>English</button><button className={language === "bg" ? "profile-choice active" : "profile-choice"} onClick={() => setLanguage("bg")}>Български</button></div></section><section className="profile-card"><div className="profile-card-heading"><Sparkles size={18} /><strong>{t("ChatGPT търсене")}</strong></div><small>{t("ChatGPT използва уеб търсене и показва отговора директно в WebVault.")}</small><small>{t("ChatGPT търсенето е достъпно само с PRO абонамент.")}</small></section>
+    <section className="profile-card"><div className="profile-card-heading"><Settings2 size={18} /><strong>{t("Език")}</strong></div><div className="profile-choice-row"><button className={language === "en" ? "profile-choice active" : "profile-choice"} onClick={() => setLanguage("en")}>English</button><button className={language === "bg" ? "profile-choice active" : "profile-choice"} onClick={() => setLanguage("bg")}>Български</button></div></section><DeviceManager language={language} /><section className="profile-card"><div className="profile-card-heading"><Sparkles size={18} /><strong>{t("ChatGPT търсене")}</strong></div><small>{t("ChatGPT използва уеб търсене и показва отговора директно в WebVault.")}</small><small>{t("ChatGPT търсенето е достъпно само с PRO абонамент.")}</small></section>
     <section className="profile-card"><div className="profile-card-heading"><Sun size={18} /><strong>{t("Тема")}</strong></div><div className="profile-choice-row"><button className={!dark ? "profile-choice active" : "profile-choice"} onClick={() => setDark(false)}>{t("Светла")}</button><button className={dark ? "profile-choice active" : "profile-choice"} onClick={() => setDark(true)}>{t("Тъмна")}</button></div></section>
     <form className="profile-card profile-form" onSubmit={updatePassword}><div className="profile-card-heading"><KeyRound size={18} /><strong>{t("Смени паролата")}</strong></div><label>{t("Нова парола")}<input type="password" value={password} onChange={(event) => { setPassword(event.target.value); resetFeedback(); }} placeholder={t("Въведи нова парола")} minLength={8} autoComplete="new-password" /></label><label>{t("Потвърди новата парола")}<input type="password" value={confirmation} onChange={(event) => { setConfirmation(event.target.value); resetFeedback(); }} placeholder={t("Потвърди новата парола")} minLength={8} autoComplete="new-password" /></label><button className="add-button" disabled={passwordBusy}>{passwordBusy ? <LoaderCircle size={17} className="spin" /> : <KeyRound size={17} />}{t("Запази паролата")}</button></form>
     <section className="profile-card"><div className="profile-card-heading"><Trash2 size={18} /><strong>{t("Изтриване на акаунта")}</strong></div><small>{t("Изтриваш окончателно профила, отметките, категориите, устройства и качените икони. Ако имаш активен абонамент през Stripe, той ще бъде отменен.")}</small><div className="profile-account-actions"><button type="button" className="profile-choice" onClick={openDeletionResource}>{t("Политика и помощ")}</button><button type="button" className="profile-choice danger-item" onClick={() => { resetFeedback(); setConfirmAccountDeletion(true); }}><Trash2 size={15} />{t("Изтрий акаунта")}</button></div></section>
