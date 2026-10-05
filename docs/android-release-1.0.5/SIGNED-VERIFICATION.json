@@ -11,6 +11,10 @@
   "payload_unchanged": true,
   "payload_entries_verified": 487,
   "bundletool_validation_passed": true,
-  "google_play_uploaded": false,
-  "verified_at": "2026-10-05T19:37:40.225047+00:00"
+  "google_play_uploaded": true,
+  "verified_at": "2026-10-05T19:37:40.225047+00:00",
+  "google_play_review_requested": true,
+  "google_play_state": "Changes in review",
+  "google_play_published": false,
+  "google_play_status_observed_at": "2026-10-05T20:08:39.088Z"
 }

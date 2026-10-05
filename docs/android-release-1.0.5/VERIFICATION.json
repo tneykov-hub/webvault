@@ -60,7 +60,7 @@
     }
   ],
   "owner_windows_file_picker_test": false,
-  "google_play_uploaded": false,
+  "google_play_uploaded": true,
   "physical_device_test": false,
   "real_email_test": false,
   "strict_enforcement": false,
@@ -83,5 +83,9 @@
   "payload_unchanged": true,
   "production_deployment_id": "dpl_8oxZQKNKk6pHGac6JGCtE2vHZmiN",
   "production_application_commit": "1096bfd4a46c3590998e3fcc6021c11fbf6a78b8",
-  "owner_windows_signing_result": "Owner supplied signed AAB; independent signature/certificate/487-payload checks passed."
+  "owner_windows_signing_result": "Owner supplied signed AAB; independent signature/certificate/487-payload checks passed.",
+  "google_play_review_requested": true,
+  "google_play_state": "Changes in review",
+  "google_play_published": false,
+  "google_play_status_observed_at": "2026-10-05T20:08:39.088Z"
 }

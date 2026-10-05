@@ -1,0 +1,30 @@
+{
+  "observed_at": "2026-10-05T20:08:39.088Z",
+  "application_id": "site.webvault.app",
+  "version_name": "1.0.5",
+  "version_code": 6,
+  "track": "Closed testing - Alpha",
+  "google_play_uploaded": true,
+  "recognized_release": "6 (1.0.5)",
+  "review_requested": true,
+  "publishing_overview_status": "Changes in review",
+  "quick_checks": "Running at last observation; changes queued for review when checks succeed",
+  "published": false,
+  "managed_publishing": false,
+  "rollout_percentage": 100,
+  "blocking_validation_errors": 0,
+  "validation_warnings": [
+    {
+      "type": "missing_deobfuscation_file",
+      "blocking": false,
+      "release_minify_enabled": false
+    }
+  ],
+  "supported_devices_lost": 0,
+  "release_notes_language": "en-US",
+  "signed_aab_sha256": "cf562407abe703eab114c648b7fca8845e70a869ae36f6227b4bdd10061dae7b",
+  "strict_enforcement": false,
+  "physical_device_test": false,
+  "real_email_test": false,
+  "evidence": "alpha-1.0.5-in-review.jpg is preserved in android-1.0.5/release within the release archives."
+}

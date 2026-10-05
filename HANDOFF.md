@@ -1,5 +1,13 @@
 # WebVault — HANDOFF
 
+## 5 October 2026 — Android 1.0.5 uploaded and Alpha review requested
+
+- Uploaded the independently verified **6 (1.0.5)** signed AAB to the existing **Closed testing – Alpha** track and requested review of the single release change. At **20:08:39 UTC / 23:08 Sofia**, Publishing overview showed **Changes in review** with quick checks running. No approval, tester publication or Production Android rollout is claimed. Managed publishing remains off; requested rollout is 100% of the existing Alpha track.
+- Release validation showed **zero blocking errors**, zero lost supported devices and one non-blocking missing-deobfuscation warning. The preserved native release configuration is minify=false. The en-US release notes were entered; BG notes remain in the archive. Public submission metadata is in `docs/android-release-1.0.5/ALPHA-SUBMISSION.json`; the account screenshot is retained privately in the release archives.
+- Required web/API production is READY, including the signing/production documentation commit `105eb6b88457617692003c282b1fc0104f056192`, deployment `dpl_2je6zit93SQ2URJsbe76fy2jaAXk`. Runtime source is unchanged from the verified merged implementation. Pricing and Android device-header CORS were checked again successfully after the documentation deployment; its observed error/fatal scan found no logs.
+- **Strict enforcement is still OFF.** A final read-only database check returned the same 19 profiles and digest `877756ede635603632ee0f46d8f350f8`. Real email/device approval, two-device takeover, removal, signed-in CRUD, paid AI and physical-phone verification remain pending after the Alpha update becomes available. Private upload keys/passwords remain with the owner.
+- Current release archives include the signed/unsigned AABs, verification and submission evidence, updated HANDOFF, complete sources/Git history and unchanged historical native/store files. Earlier pending-upload statements below are historical and superseded by this section.
+
 ## 5 October 2026 — signed Android 1.0.5 verified; required web/API published
 
 - Owner supplied **WebVault-1.0.5-code-6-signed.aab**, 3,557,670 bytes, SHA-256 `cf562407abe703eab114c648b7fca8845e70a869ae36f6227b4bdd10061dae7b`. Independent jarsigner, expected 1.0.4 upload certificate, bundletool validation and manifest identity checks passed. All **487 payload entries** exactly match the previously verified unsigned AAB. The private upload key remains with the owner.
