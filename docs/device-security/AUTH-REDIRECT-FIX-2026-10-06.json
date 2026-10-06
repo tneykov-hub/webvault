@@ -1,0 +1,50 @@
+{
+  "observed_at": "2026-10-06T13:30:09.951812Z",
+  "cause": "Supabase Auth rejected the production web redirect and fell back to http://localhost:3000.",
+  "configuration_changed_by": "Owner in Supabase Authentication URL Configuration",
+  "confirmed_site_url": "https://webvault.site",
+  "verification_method": "Read-only verify requests with an intentionally invalid diagnostic token, without sending mail or creating a session; owner completed a separate real email approval.",
+  "checks": [
+    {
+      "name": "website",
+      "status": 303,
+      "redirect": "https://webvault.site",
+      "passed": true
+    },
+    {
+      "name": "device_confirmation",
+      "status": 303,
+      "redirect": "https://webvault.site/",
+      "challenge_query_preserved": true,
+      "passed": true
+    },
+    {
+      "name": "android_callback",
+      "status": 303,
+      "redirect": "webvault://auth/callback",
+      "passed": true
+    },
+    {
+      "name": "foreign_domain_rejected",
+      "status": 303,
+      "requested": "https://example.invalid/callback",
+      "redirect": "https://webvault.site",
+      "passed": true
+    }
+  ],
+  "diagnostic_error_expected": "otp_expired because every diagnostic token was intentionally invalid",
+  "real_owner_email_approval_verified": true,
+  "real_approval_evidence": "An owner-filtered read-only database query confirmed one approved installation after the owner completed the email link and confirmation button.",
+  "physical_android_verified": false,
+  "strict_enforcement": false,
+  "application_runtime_changed": false,
+  "new_android_bundle_required": false,
+  "remaining_checks": [
+    "Physical Android email approval",
+    "Two-device takeover",
+    "Revocation",
+    "Signed-in CRUD and AI",
+    "Client rollout before enabling strict enforcement"
+  ],
+  "privacy": "No account identifiers, session tokens, device secrets or live email links are included."
+}

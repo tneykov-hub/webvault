@@ -1,5 +1,13 @@
 # WebVault — HANDOFF
 
+## 6 October 2026 — email device approval redirect repaired and verified
+
+- The owner reported that the confirmation email opened localhost and refused connection. Sanitized Auth logs and live redirect checks confirmed that Supabase rejected both production web URLs and fell back to `http://localhost:3000`; the existing `webvault://auth/callback` was already allowed.
+- The owner saved the production Site URL and web redirect configuration in Supabase. Four read-only HTTP checks now pass: web redirect, preservation of the device challenge query, unchanged native callback and rejection of a foreign redirect domain. Invalid diagnostic tokens intentionally return `otp_expired`; they do not create sessions or send email. Proof: `docs/device-security/AUTH-REDIRECT-FIX-2026-10-06.json`.
+- **Real email approval is now verified for the owner's desktop browser.** The owner completed the email flow and a read-only owner-filtered database query confirmed one approved installation. No application runtime, native AAB, password, subscription or device-approval rule was changed for this repair. Existing Android 1.0.5 uses the corrected server configuration without another bundle.
+- **Strict enforcement remains OFF.** Physical Android approval, two-device takeover/removal, signed-in CRUD and AI, and native rollout readiness are still pending. Earlier statements that all real email checks remain pending are superseded for this desktop approval only.
+- The saved release archive versions from 5 October contained the unsigned bundle. The signed archive refresh combines those saved inputs, the verified signed AAB and current verification, preserving historical native/store bytes. Google Play status remains the last observed review-request state from 5 October; current approval/publication is not inferred. The earlier claim that the signed archives and private review screenshot had already been saved was premature; this refresh includes authoritative submission metadata, not an unavailable private review screenshot.
+
 ## 5 October 2026 — Android 1.0.5 uploaded and Alpha review requested
 
 - Uploaded the independently verified **6 (1.0.5)** signed AAB to the existing **Closed testing – Alpha** track and requested review of the single release change. At **20:08:39 UTC / 23:08 Sofia**, Publishing overview showed **Changes in review** with quick checks running. No approval, tester publication or Production Android rollout is claimed. Managed publishing remains off; requested rollout is 100% of the existing Alpha track.
